@@ -18,9 +18,9 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
+import static me.shail.healthplatform.ingestion.ingestion.KafkaTestSupport.awaitRecordWithKey;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
@@ -51,21 +51,5 @@ public class BatchPublisherTest {
             String actual = record.value();
             assertEquals(mapper.readTree(expected), mapper.readTree(actual));
         }
-    }
-
-    private ConsumerRecord<String, String> awaitRecordWithKey(ConsumerTask<String, String> task,
-                                                              String key,
-                                                              Duration timeout) throws InterruptedException {
-        long deadline = System.nanoTime() + timeout.toNanos();
-        while (System.nanoTime() < deadline) {
-            Optional<ConsumerRecord<String, String>> match = task.getRecords().stream()
-                    .filter(r -> key.equals(r.key()))
-                    .findFirst();
-            if (match.isPresent()) {
-                return match.get();
-            }
-            Thread.sleep(100);
-        }
-        throw new AssertionError("No record with key " + key + " on the topic within " + timeout);
     }
 }
