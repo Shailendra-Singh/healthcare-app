@@ -30,7 +30,14 @@ public class IngestionPoller {
 
     @Scheduled(every = "{ingestion.poll-interval}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
     public Uni<Void> poll() {
-        return newFileFinder.findNewFiles()
+        // Polls never overlap (SKIP), so a RECEIVED batch now is from an interrupted poll.
+        return batchStatusUpdater.failInterrupted()
+                .invoke(count -> {
+                    if (count > 0) {
+                        Log.warnf("Marked %d interrupted batch(es) FAILED; their files were never loaded, so they are picked up again", count);
+                    }
+                })
+                .chain(newFileFinder::findNewFiles)
                 .chain(files -> files.isEmpty()
                         ? Uni.createFrom().item(Optional.<CreatedBatch>empty())
                         : batchCreator.create(files))

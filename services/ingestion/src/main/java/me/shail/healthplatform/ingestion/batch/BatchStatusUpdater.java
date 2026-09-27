@@ -40,4 +40,15 @@ public class BatchStatusUpdater {
                 })
                 .replaceWithVoid();
     }
+
+    /**
+     * Marks every RECEIVED batch FAILED and returns how many there were. Call it only
+     * when no poll is running: a RECEIVED batch is then left over from an interrupted
+     * poll (app stopped or reloaded mid-poll), and FAILED makes it retryable.
+     */
+    @WithTransaction
+    public Uni<Integer> failInterrupted() {
+        return Batch.update("status = ?1, completedAt = ?2 where status = ?3",
+                BatchStatus.FAILED, Instant.now(), BatchStatus.RECEIVED);
+    }
 }

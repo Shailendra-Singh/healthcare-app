@@ -109,6 +109,27 @@ class BatchStatusUpdaterTest {
         asserter.assertFailedWith(() -> updater.markPublished(UUID.randomUUID()), IllegalStateException.class);
     }
 
+    @Test
+    @RunOnVertxContext
+    void failInterruptedFailsReceivedBatchesOnly(UniAsserter asserter) {
+        UUID interrupted = UUID.randomUUID();
+        UUID published = UUID.randomUUID();
+        asserter.execute(() -> storeBatch(interrupted, FileType.LABS));
+        asserter.execute(() -> storeBatch(published, FileType.LABS));
+        asserter.execute(() -> updater.markPublished(published));
+
+        asserter.assertThat(() -> updater.failInterrupted(), count -> assertTrue(count >= 1));
+
+        asserter.assertThat(() -> findBatch(interrupted), batch -> {
+            assertEquals(BatchStatus.FAILED, batch.status);
+            assertNotNull(batch.completedAt);
+        });
+        asserter.assertThat(() -> findFiles(interrupted),
+                files -> assertEquals(FileStatus.NEW, files.getFirst().status, "files stay NEW, so they are retried"));
+        asserter.assertThat(() -> findBatch(published),
+                batch -> assertEquals(BatchStatus.PUBLISHED, batch.status));
+    }
+
     /** A batch as Step 7 leaves it: RECEIVED, with one NEW file per given type. */
     private static Uni<Void> storeBatch(UUID batchId, FileType... types) {
         return Panache.withTransaction(() -> {

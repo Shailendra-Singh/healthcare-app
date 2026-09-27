@@ -12,12 +12,14 @@ import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.reactive.messaging.kafka.companion.ConsumerTask;
 import io.smallrye.reactive.messaging.kafka.companion.KafkaCompanion;
 import jakarta.inject.Inject;
+import me.shail.healthplatform.ingestion.batch.BatchCreator;
 import me.shail.healthplatform.ingestion.config.IngestionConfig;
 import me.shail.healthplatform.ingestion.entity.Batch;
 import me.shail.healthplatform.ingestion.entity.BatchFile;
 import me.shail.healthplatform.ingestion.model.BatchStatus;
 import me.shail.healthplatform.ingestion.model.FileStatus;
 import me.shail.healthplatform.ingestion.model.FileType;
+import me.shail.healthplatform.ingestion.scan.NewFileFinder;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,6 +61,12 @@ class IngestionPollerTest {
 
     @Inject
     IngestionConfig config;
+
+    @Inject
+    NewFileFinder finder;
+
+    @Inject
+    BatchCreator creator;
 
     @InjectKafkaCompanion
     KafkaCompanion companion;
@@ -132,6 +140,26 @@ class IngestionPollerTest {
             assertEquals(1, newBatches.size(), "exactly one new batch");
             UUID secondBatch = newBatches.iterator().next();
             assertEquals(Set.of(FileType.LABS), fileTypes(eventFor(task, secondBatch)));
+        }
+    }
+
+    @Test
+    void interruptedBatchIsFailedAndItsFilesPublishedAgain() throws Throwable {
+        writeInboxFile(FileType.LABS);
+        // A poll that stopped after recording its batch: RECEIVED, files NEW, never published.
+        UUID interrupted = VertxContextSupport.subscribeAndAwait(
+                () -> finder.findNewFiles().chain(creator::create)).orElseThrow().batchId();
+
+        try (ConsumerTask<String, String> task = companion.consumeStrings().fromTopics(TOPIC)) {
+            poll();
+
+            assertEquals(BatchStatus.FAILED, findBatch(interrupted).status);
+            Set<UUID> newBatches = batchFolders();
+            newBatches.remove(interrupted);
+            assertEquals(1, newBatches.size(), "the file is published in a new batch");
+            UUID retry = newBatches.iterator().next();
+            assertEquals(Set.of(FileType.LABS), fileTypes(eventFor(task, retry)));
+            assertEquals(BatchStatus.PUBLISHED, findBatch(retry).status);
         }
     }
 
