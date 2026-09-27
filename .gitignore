@@ -22,3 +22,37 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Data files: never commit patient data (batches live outside the repo)
+*.csv
+*.tsv
+data/
+
+# Maven
+target/
+.flattened-pom.xml
+
+# Quarkus
+.quarkus/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+
+# Node / frontend
+node_modules/
+dist/
+coverage/
+
+# Local environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
