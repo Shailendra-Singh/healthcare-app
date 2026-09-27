@@ -1,7 +1,5 @@
 package me.shail.model;
 
-import io.quarkus.data.hibernate.ManagedEntity;
-import io.quarkus.data.hibernate.ManagedRepository;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -11,7 +9,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(schema = "dbo", name = "language")
-public class Language implements ManagedEntity.Reactive.CustomId {
+public class Language {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,7 +18,4 @@ public class Language implements ManagedEntity.Reactive.CustomId {
 
     @Column(name = "language_name", nullable = false, length = 100)
     public String name;
-
-    public interface Repo extends ManagedRepository.Reactive.CustomId<Language, Short> {
-    }
 }

@@ -1,7 +1,5 @@
 package me.shail.model;
 
-import io.quarkus.data.hibernate.ManagedEntity;
-import io.quarkus.data.hibernate.ManagedRepository;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -14,7 +12,7 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(schema = "dbo", name = "condition_group")
-public class ConditionGroup implements ManagedEntity.Reactive.CustomId {
+public class ConditionGroup {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,7 +27,4 @@ public class ConditionGroup implements ManagedEntity.Reactive.CustomId {
 
     @Column(name = "is_chronic", nullable = false)
     public boolean chronic;
-
-    public interface Repo extends ManagedRepository.Reactive.CustomId<ConditionGroup, Short> {
-    }
 }

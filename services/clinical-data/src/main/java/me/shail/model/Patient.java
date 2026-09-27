@@ -1,7 +1,5 @@
 package me.shail.model;
 
-import io.quarkus.data.hibernate.ManagedEntity;
-import io.quarkus.data.hibernate.ManagedRepository;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -17,7 +15,7 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(schema = "dbo", name = "patient")
-public class Patient implements ManagedEntity.Reactive.CustomId {
+public class Patient {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -62,8 +60,5 @@ public class Patient implements ManagedEntity.Reactive.CustomId {
     @PreUpdate
     void touch() {
         updatedAt = OffsetDateTime.now();
-    }
-
-    public interface Repo extends ManagedRepository.Reactive.CustomId<Patient, Long> {
     }
 }
