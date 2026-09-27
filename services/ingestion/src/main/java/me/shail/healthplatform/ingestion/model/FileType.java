@@ -23,7 +23,9 @@ public enum FileType {
         return fileName;
     }
 
-    /** The type for an exact file name, or empty for any other file. */
+    /**
+     * The type for an exact file name, or empty for any other file.
+     */
     public static Optional<FileType> fromFileName(String name) {
         return Arrays.stream(values())
                 .filter(type -> type.fileName.equals(name))

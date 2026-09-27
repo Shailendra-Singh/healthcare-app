@@ -12,15 +12,23 @@ import java.time.Duration;
 @ConfigMapping(prefix = "ingestion")
 public interface IngestionConfig {
 
-    /** Folder where raw CSV files arrive; ingestion only reads from it. */
+    /**
+     * Folder where raw CSV files arrive; ingestion only reads from it.
+     */
     Path dropDir();
 
-    /** Folder where validated files and rejected-row reports are written for clinical data to read. */
+    /**
+     * Folder where validated files and rejected-row reports are written for clinical data to read.
+     */
     Path storageRoot();
 
-    /** How often the drop folder is polled. */
+    /**
+     * How often the drop folder is polled.
+     */
     Duration pollInterval();
 
-    /** Minimum time since a file's last modification before it is picked up. */
+    /**
+     * Minimum time since a file's last modification before it is picked up.
+     */
     Duration minFileAge();
 }

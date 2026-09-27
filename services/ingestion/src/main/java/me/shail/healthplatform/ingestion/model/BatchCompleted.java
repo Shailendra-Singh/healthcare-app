@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record BatchCompleted(UUID batchId, List<BatchCompletedFile> files) {
-    public static BatchCompleted from(CreatedBatch createdBatch){
+    public static BatchCompleted from(CreatedBatch createdBatch) {
         return new BatchCompleted(createdBatch.batchId(),
                 createdBatch
                         .files().stream()

@@ -51,7 +51,9 @@ public class InboxScanner {
         return type.map(t -> new Candidate(t, path));
     }
 
-    /** Regular file whose last modification is at or before the cutoff. */
+    /**
+     * Regular file whose last modification is at or before the cutoff.
+     */
     private Uni<Boolean> isOldEnough(Path path, Instant cutoff) {
         return fs.props(path.toString()).map(props -> {
             boolean oldEnough = !Instant.ofEpochMilli(props.lastModifiedTime()).isAfter(cutoff);

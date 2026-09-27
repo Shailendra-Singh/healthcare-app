@@ -97,7 +97,9 @@ public class BatchCreator {
         });
     }
 
-    /** Best effort: a leftover folder is harmless because no row points at it. */
+    /**
+     * Best effort: a leftover folder is harmless because no row points at it.
+     */
     private Uni<Void> deleteDir(String dir) {
         return fs.deleteRecursive(dir, true)
                 .onFailure().invoke(e -> Log.warnf(e, "Could not remove %s", dir))

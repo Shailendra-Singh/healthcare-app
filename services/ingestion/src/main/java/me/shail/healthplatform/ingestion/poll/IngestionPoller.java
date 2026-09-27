@@ -13,8 +13,6 @@ import me.shail.healthplatform.ingestion.scan.NewFileFinder;
 
 import java.util.Optional;
 
-import static io.smallrye.mutiny.helpers.spies.Spy.onFailure;
-
 @ApplicationScoped
 public class IngestionPoller {
     private final NewFileFinder newFileFinder;

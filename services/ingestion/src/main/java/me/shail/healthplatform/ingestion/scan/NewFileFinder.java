@@ -27,7 +27,9 @@ public class NewFileFinder {
         return scanner.scan().chain(this::withoutLoaded);
     }
 
-    /** Keeps the files whose type and checksum match no LOADED file. */
+    /**
+     * Keeps the files whose type and checksum match no LOADED file.
+     */
     @WithSession
     Uni<List<InboxFile>> withoutLoaded(List<InboxFile> files) {
         if (files.isEmpty()) {
