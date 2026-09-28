@@ -2,68 +2,114 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#0172ad">
+  <meta name="description" content="Patients, their care needs, and the scheduling and referral tasks that close them.">
   <title>Care Tasks</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="/favicon.ico" sizes="48x48">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/vendor/pico-2.1.1.min.css">
   <link rel="stylesheet" href="/app.css">
   <!-- app.js registers the Alpine component, so it must run before Alpine starts (deferred scripts run in order) -->
   <script defer src="/app.js"></script>
   <script defer src="/vendor/alpine-3.17.4.min.js"></script>
 </head>
-<body x-data="app" x-cloak>
+<body x-data="app" x-cloak @keydown.escape.window="cancelling = null">
 
   <!-- ===================== Checking the session ===================== -->
-  <div class="splash" x-show="state === 'loading'">Loading…</div>
+  <div class="splash" x-show="state === 'loading'" aria-busy="true">Loading…</div>
 
   <!-- ===================== Login page ===================== -->
   <main class="login" x-show="state === 'signedOut'">
-    <section class="login-card">
-      <h1>Care Tasks</h1>
-      <p class="muted">Patients, their care needs, and the scheduling and referral tasks that close them.</p>
+    <article>
+      <header>
+        <img src="/favicon.svg" alt="" width="56" height="56">
+        <hgroup>
+          <h1>Care Tasks</h1>
+          <p>Patients, their care needs, and the scheduling and referral tasks that close them.</p>
+        </hgroup>
+      </header>
 
-      <a class="button primary wide" href="/login">Sign in</a>
-      <p class="hint">You sign in on the organisation's Keycloak page; the app never sees your password.</p>
+      <a role="button" class="wide" href="/login">Sign in</a>
+      <small class="hint">You sign in on the organisation's Keycloak page; the app never sees your password.</small>
 
-      <table class="roles">
-        <caption>What you see depends on your role</caption>
-        <tbody>
-          <tr><th>Scheduler</th><td>Scheduling tasks: patients who need appointments booked directly</td></tr>
-          <tr><th>Clinical team</th><td>Scheduling and referral tasks, to review whether a referral is appropriate</td></tr>
-          <tr><th>Admin</th><td>Everything</td></tr>
-        </tbody>
-      </table>
+      <h2 class="section-title">What you see depends on your role</h2>
+      <dl class="roles">
+        <dt>Scheduler</dt><dd>Scheduling tasks: patients who need appointments booked directly</dd>
+        <dt>Clinical team</dt><dd>Scheduling and referral tasks, to review whether a referral is appropriate</dd>
+        <dt>Admin</dt><dd>Everything</dd>
+      </dl>
 
-      <p class="login-links"><a href="/q/swagger-ui" target="_blank" rel="noopener">API documentation (Swagger UI)</a></p>
-    </section>
+      <footer><a href="/q/swagger-ui" target="_blank" rel="noopener">API documentation (Swagger UI)</a></footer>
+    </article>
   </main>
 
   <!-- ===================== Signed in ===================== -->
   <div class="shell" x-show="state === 'signedIn'">
     <header class="topbar">
-      <span class="brand">Care Tasks</span>
-      <nav>
-        <a href="#/worklist" :class="{ active: view === 'worklist' }">Worklist</a>
-        <a href="#/patients" :class="{ active: view === 'patients' }">Patients</a>
+      <nav class="page">
+        <ul>
+          <li><a class="brand" href="#/worklist"><img src="/favicon.svg" alt="" width="28" height="28"> Care Tasks</a></li>
+        </ul>
+        <!-- On phones this becomes a tab bar at the bottom of the screen -->
+        <ul class="tabs">
+          <li>
+            <a href="#/worklist" :aria-current="view === 'worklist' ? 'page' : null">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>
+              <span>Worklist</span>
+            </a>
+          </li>
+          <li>
+            <a href="#/patients" :aria-current="view === 'patients' ? 'page' : null">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 20v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>
+              <span>Patients</span>
+            </a>
+          </li>
+        </ul>
+        <ul>
+          <li>
+            <details class="dropdown user-menu" x-ref="menu" @click.outside="$refs.menu.open = false">
+              <summary>
+                <span class="avatar" x-text="initials()" aria-hidden="true"></span>
+                <span class="username" x-text="me?.username"></span>
+              </summary>
+              <ul dir="rtl">
+                <li class="menu-roles" dir="ltr">
+                  <strong x-text="me?.username"></strong>
+                  <template x-for="role in (me?.roles || [])" :key="role">
+                    <span class="badge role" x-text="roleLabel(role)"></span>
+                  </template>
+                </li>
+                <li dir="ltr"><a href="/q/swagger-ui" target="_blank" rel="noopener">Swagger UI</a></li>
+                <li dir="ltr"><a href="/logout">Sign out</a></li>
+              </ul>
+            </details>
+          </li>
+        </ul>
       </nav>
-      <div class="user">
-        <a href="/q/swagger-ui" target="_blank" rel="noopener">Swagger UI</a>
-        <span class="who">
-          <span x-text="me?.username"></span>
-          <template x-for="role in (me?.roles || [])" :key="role">
-            <span class="badge role" x-text="roleLabel(role)"></span>
-          </template>
-        </span>
-        <a class="button" href="/logout">Sign out</a>
-      </div>
     </header>
 
-    <div class="error" role="alert" x-show="error" x-text="error"></div>
+    <div class="page">
+      <div class="alert" role="alert" x-show="error">
+        <span x-text="error"></span>
+        <button type="button" class="close" aria-label="Dismiss" @click="error = null">×</button>
+      </div>
+    </div>
 
     <!-- ===================== Worklist ===================== -->
-    <main class="worklist" x-show="view === 'worklist'">
+    <main class="page worklist" x-show="view === 'worklist'">
       <div class="title-row">
-        <h2>Worklist</h2>
-        <p class="muted" x-text="roleHint()"></p>
+        <hgroup>
+          <h2>Worklist</h2>
+          <p x-text="roleHint()"></p>
+        </hgroup>
+        <p class="counts" x-show="!loadingTasks && tasks.length > 0">
+          <span class="badge" x-text="tasks.length + (tasks.length === 1 ? ' task' : ' tasks')"></span>
+          <span class="badge overdue" x-show="overdueCount() > 0" x-text="overdueCount() + ' overdue'"></span>
+        </p>
       </div>
 
       <form class="filters" @submit.prevent="page = 1; loadTasks()" @change="page = 1; loadTasks()">
@@ -94,164 +140,195 @@
             <option value="ALL">All</option>
           </select>
         </label>
-        <label class="check"><input type="checkbox" x-model="filters.mine"> Assigned to me</label>
+        <label class="switch"><input type="checkbox" role="switch" x-model="filters.mine"> Assigned to me</label>
       </form>
 
-      <div class="table-wrap">
-        <table class="grid">
+      <div class="table-card">
+        <table class="cards">
           <thead>
             <tr>
               <th>Due</th><th>Patient</th><th>Type</th><th>Specialty</th><th>Program / tier</th>
-              <th>Last visit</th><th>Status</th><th>Assignee</th><th></th>
+              <th>Last visit</th><th>Status</th><th>Assignee</th><th><span class="visually-hidden">Actions</span></th>
             </tr>
           </thead>
           <tbody>
             <template x-for="task in tasks" :key="task.taskId">
               <tr :class="{ overdue: isOverdue(task) }">
-                <td>
-                  <span x-text="task.dueDate"></span>
+                <td data-label="Due" class="card-head">
+                  <strong x-text="task.dueDate"></strong>
+                  <span class="badge overdue" x-show="isOverdue(task)">Overdue</span>
                   <span class="badge high" x-show="task.priority === 'high'">High</span>
                 </td>
-                <td><a href="#/patients" @click.prevent="openPatient(task.sourcePatientId)" x-text="task.sourcePatientId"></a></td>
-                <td><span class="badge" :class="task.taskType.toLowerCase()" x-text="typeLabel(task.taskType)"></span></td>
-                <td x-text="task.specialty"></td>
-                <td>
+                <td data-label="Patient"><a href="#/patients" @click.prevent="openPatient(task.sourcePatientId)" x-text="task.sourcePatientId"></a></td>
+                <td data-label="Type"><span class="badge" :class="task.taskType.toLowerCase()" x-text="typeLabel(task.taskType)"></span></td>
+                <td data-label="Specialty" x-text="task.specialty"></td>
+                <td data-label="Program">
                   <span x-text="programLabel(task.programId)"></span>
-                  <span class="muted" x-text="'· ' + task.tierId"></span>
+                  <small class="muted" x-text="tierLabel(task.tierId)"></small>
                 </td>
-                <td>
+                <td data-label="Last visit">
                   <span x-text="task.lastVisitDate || 'Never'"></span>
-                  <span class="muted" x-text="'· every ' + task.cadenceDays + ' days'"></span>
+                  <small class="muted" x-text="'every ' + task.cadenceDays + ' days'"></small>
                 </td>
-                <td><span class="badge status" :class="task.status.toLowerCase()" x-text="statusLabel(task.status)"></span></td>
-                <td x-text="task.assignee || '—'"></td>
+                <td data-label="Status"><span class="badge status" :class="task.status.toLowerCase()" x-text="statusLabel(task.status)"></span></td>
+                <td data-label="Assignee" x-text="task.assignee || '—'"></td>
                 <td class="actions">
                   <template x-if="task.status === 'OPEN'">
-                    <button type="button" @click="changeTask(task, 'IN_PROGRESS')">Start</button>
+                    <button type="button" class="small outline" @click="changeTask(task, 'IN_PROGRESS')">Start</button>
                   </template>
                   <template x-if="task.status === 'IN_PROGRESS'">
-                    <button type="button" @click="changeTask(task, 'OPEN')">Back to open</button>
+                    <button type="button" class="small outline secondary" @click="changeTask(task, 'OPEN')">Back to open</button>
                   </template>
                   <template x-if="task.status === 'OPEN' || task.status === 'IN_PROGRESS'">
-                    <span>
-                      <button type="button" class="primary" @click="changeTask(task, 'COMPLETED')">Complete</button>
-                      <button type="button" @click="changeTask(task, 'CANCELLED')">Cancel</button>
+                    <span class="action-group">
+                      <button type="button" class="small" @click="changeTask(task, 'COMPLETED')">Complete</button>
+                      <button type="button" class="small outline secondary" @click="changeTask(task, 'CANCELLED')">Cancel</button>
                     </span>
                   </template>
-                  <span class="muted" x-show="task.closeReason" x-text="task.closeReason"></span>
+                  <small class="muted" x-show="task.closeReason" x-text="task.closeReason"></small>
                 </td>
               </tr>
             </template>
-            <tr x-show="!loadingTasks && tasks.length === 0">
+            <tr class="state-row" x-show="!loadingTasks && tasks.length === 0">
               <td colspan="9" class="empty">No tasks match these filters.</td>
             </tr>
-            <tr x-show="loadingTasks"><td colspan="9" class="empty">Loading…</td></tr>
+            <tr class="state-row" x-show="loadingTasks"><td colspan="9" class="empty" aria-busy="true">Loading tasks…</td></tr>
           </tbody>
         </table>
       </div>
-      <div class="pager">
-        <button type="button" :disabled="page === 1" @click="page--; loadTasks()">Previous</button>
+      <nav class="pager" aria-label="Pages">
+        <button type="button" class="small outline secondary" :disabled="page === 1" @click="page--; loadTasks()">Previous</button>
         <span x-text="'Page ' + page"></span>
-        <button type="button" :disabled="tasks.length < pageSize" @click="page++; loadTasks()">Next</button>
-      </div>
+        <button type="button" class="small outline secondary" :disabled="tasks.length < pageSize" @click="page++; loadTasks()">Next</button>
+      </nav>
     </main>
 
     <!-- ===================== Patients ===================== -->
-    <main x-show="view === 'patients'" class="patients">
+    <main class="page patients" x-show="view === 'patients'">
       <section class="patient-list">
         <div class="title-row">
           <h2>Patients</h2>
-          <form class="search" @submit.prevent="searchPatient()">
-            <input type="search" placeholder="Patient ID, e.g. P1" x-model.trim="patientSearch" aria-label="Patient ID">
-            <button type="submit">Find</button>
-            <button type="button" x-show="searching" @click="patientSearch = ''; patientPage = 1; loadPatients()">Show all</button>
+          <form role="search" @submit.prevent="searchPatient()">
+            <input type="search" placeholder="Patient ID, e.g. P1001" x-model.trim="patientSearch" aria-label="Patient ID">
+            <input type="submit" value="Find">
           </form>
         </div>
-        <div class="table-wrap">
-          <table class="grid selectable">
+        <p x-show="searching"><a href="#/patients" @click.prevent="patientSearch = ''; patientPage = 1; loadPatients()">← Show all patients</a></p>
+        <div class="table-card">
+          <table class="cards selectable">
             <thead><tr><th>Patient ID</th><th>Name</th><th>Born</th><th>Phone</th><th>Language</th></tr></thead>
             <tbody>
               <template x-for="patient in patients" :key="patient.id">
-                <tr @click="selectPatient(patient)" :class="{ selected: selected?.patient.id === patient.id }">
-                  <td x-text="patient.sourcePatientId"></td>
-                  <td x-text="patient.firstName + ' ' + patient.lastName"></td>
-                  <td x-text="patient.dateOfBirth + ' (' + age(patient.dateOfBirth) + ')'"></td>
-                  <td x-text="patient.phone || '—'"></td>
-                  <td x-text="patient.language?.name || '—'"></td>
+                <tr tabindex="0" @click="selectPatient(patient)" @keydown.enter="selectPatient(patient)"
+                    :class="{ selected: selected?.patient.id === patient.id }">
+                  <td data-label="Patient ID" class="card-head">
+                    <strong x-text="patient.sourcePatientId"></strong>
+                    <span class="mobile-only" x-text="patient.firstName + ' ' + patient.lastName"></span>
+                  </td>
+                  <td data-label="Name" class="desktop-only" x-text="patient.firstName + ' ' + patient.lastName"></td>
+                  <td data-label="Born" x-text="patient.dateOfBirth + ' (' + age(patient.dateOfBirth) + ')'"></td>
+                  <td data-label="Phone" x-text="patient.phone || '—'"></td>
+                  <td data-label="Language" x-text="patient.language?.name || '—'"></td>
                 </tr>
               </template>
-              <tr x-show="!loadingPatients && patients.length === 0"><td colspan="5" class="empty">No patients found.</td></tr>
-              <tr x-show="loadingPatients"><td colspan="5" class="empty">Loading…</td></tr>
+              <tr class="state-row" x-show="!loadingPatients && patients.length === 0"><td colspan="5" class="empty">No patients found.</td></tr>
+              <tr class="state-row" x-show="loadingPatients"><td colspan="5" class="empty" aria-busy="true">Loading patients…</td></tr>
             </tbody>
           </table>
         </div>
-        <div class="pager" x-show="!searching">
-          <button type="button" :disabled="patientPage === 1" @click="patientPage--; loadPatients()">Previous</button>
+        <nav class="pager" aria-label="Pages" x-show="!searching">
+          <button type="button" class="small outline secondary" :disabled="patientPage === 1" @click="patientPage--; loadPatients()">Previous</button>
           <span x-text="'Page ' + patientPage"></span>
-          <button type="button" :disabled="patients.length < patientPageSize" @click="patientPage++; loadPatients()">Next</button>
-        </div>
+          <button type="button" class="small outline secondary" :disabled="patients.length < patientPageSize" @click="patientPage++; loadPatients()">Next</button>
+        </nav>
       </section>
 
+      <!-- Beside the list on wide screens; a full-screen sheet on phones -->
       <aside class="patient-detail" x-show="selected">
         <template x-if="selected">
-          <div>
-            <h3 x-text="selected.patient.firstName + ' ' + selected.patient.lastName"></h3>
+          <article>
+            <header class="detail-head">
+              <hgroup>
+                <h3 x-text="selected.patient.firstName + ' ' + selected.patient.lastName"></h3>
+                <p x-text="selected.patient.sourcePatientId + ' · ' + age(selected.patient.dateOfBirth) + ' years'"></p>
+              </hgroup>
+              <button type="button" class="close" aria-label="Close" @click="selected = null">×</button>
+            </header>
             <dl class="facts">
-              <dt>Patient ID</dt><dd x-text="selected.patient.sourcePatientId"></dd>
-              <dt>Born</dt><dd x-text="selected.patient.dateOfBirth + ' (' + age(selected.patient.dateOfBirth) + ')'"></dd>
+              <dt>Born</dt><dd x-text="selected.patient.dateOfBirth"></dd>
               <dt>Gender</dt><dd x-text="selected.patient.gender"></dd>
-              <dt>Phone</dt><dd x-text="selected.patient.phone || '—'"></dd>
+              <dt>Phone</dt><dd><a :href="'tel:' + selected.patient.phone" x-show="selected.patient.phone" x-text="selected.patient.phone"></a><span x-show="!selected.patient.phone">—</span></dd>
               <dt>Language</dt><dd x-text="selected.patient.language?.name || '—'"></dd>
               <dt>PCP</dt><dd x-text="selected.patient.pcpProvider?.name || '—'"></dd>
             </dl>
 
             <h4>Care programs and needs</h4>
+            <p class="muted" x-show="selected.programs === null && !selected.programsForbidden" aria-busy="true">Loading…</p>
             <p class="muted" x-show="selected.programsForbidden">Care needs are available to the clinical team and admins.</p>
             <p class="muted" x-show="selected.programs && selected.programs.length === 0">Not in any care program.</p>
             <template x-for="program in (selected.programs || [])" :key="program.programId">
-              <div class="program">
+              <section class="program">
                 <div class="program-head">
                   <strong x-text="program.programName"></strong>
                   <span class="badge role" x-text="program.tierName || 'No tier'"></span>
                 </div>
-                <p class="evidence" x-text="evidenceText(program.evidence)"></p>
-                <table class="grid compact">
-                  <thead><tr><th>Specialty</th><th>Every</th><th>Last visit</th><th>Due</th><th>Booked</th><th>Status</th></tr></thead>
-                  <tbody>
-                    <template x-for="need in program.needs" :key="need.specialty">
-                      <tr>
-                        <td x-text="need.specialty"></td>
-                        <td x-text="need.everyDays + ' days'"></td>
-                        <td x-text="need.lastVisitDate || 'Never'"></td>
-                        <td x-text="need.dueDate"></td>
-                        <td x-text="need.nextScheduledDate || '—'"></td>
-                        <td><span class="badge status" :class="need.status.toLowerCase()" x-text="statusLabel(need.status)"></span></td>
-                      </tr>
-                    </template>
-                  </tbody>
-                </table>
-              </div>
+                <p class="evidence" x-show="Object.keys(program.evidence || {}).length" x-text="evidenceText(program.evidence)"></p>
+                <ul class="needs">
+                  <template x-for="need in program.needs" :key="need.specialty">
+                    <li>
+                      <div>
+                        <strong x-text="need.specialty"></strong>
+                        <small class="muted" x-text="'every ' + need.everyDays + ' days · last ' + (need.lastVisitDate || 'never')"></small>
+                      </div>
+                      <div class="need-status">
+                        <span class="badge status" :class="need.status.toLowerCase()" x-text="statusLabel(need.status)"></span>
+                        <small class="muted" x-text="need.nextScheduledDate ? 'booked ' + need.nextScheduledDate : 'due ' + need.dueDate"></small>
+                      </div>
+                    </li>
+                  </template>
+                </ul>
+              </section>
             </template>
 
             <h4>Tasks</h4>
+            <p class="muted" x-show="selected.tasks === null" aria-busy="true">Loading…</p>
             <p class="muted" x-show="selected.tasks && selected.tasks.length === 0">No tasks you can see.</p>
-            <table class="grid compact" x-show="selected.tasks && selected.tasks.length > 0">
-              <thead><tr><th>Type</th><th>Specialty</th><th>Due</th><th>Status</th></tr></thead>
-              <tbody>
-                <template x-for="task in (selected.tasks || [])" :key="task.taskId">
-                  <tr>
-                    <td><span class="badge" :class="task.taskType.toLowerCase()" x-text="typeLabel(task.taskType)"></span></td>
-                    <td x-text="task.specialty"></td>
-                    <td x-text="task.dueDate"></td>
-                    <td><span class="badge status" :class="task.status.toLowerCase()" x-text="statusLabel(task.status)"></span></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
+            <ul class="needs" x-show="selected.tasks && selected.tasks.length > 0">
+              <template x-for="task in (selected.tasks || [])" :key="task.taskId">
+                <li>
+                  <div>
+                    <strong x-text="task.specialty"></strong>
+                    <small class="muted" x-text="'due ' + task.dueDate"></small>
+                  </div>
+                  <div class="need-status">
+                    <span class="badge" :class="task.taskType.toLowerCase()" x-text="typeLabel(task.taskType)"></span>
+                    <span class="badge status" :class="task.status.toLowerCase()" x-text="statusLabel(task.status)"></span>
+                  </div>
+                </li>
+              </template>
+            </ul>
+          </article>
         </template>
       </aside>
     </main>
+
+    <!-- ===================== Cancel a task ===================== -->
+    <dialog :open="cancelling !== null">
+      <article>
+        <header>
+          <button type="button" aria-label="Close" rel="prev" @click="cancelling = null"></button>
+          <h3>Cancel task</h3>
+        </header>
+        <p x-show="cancelling" x-text="cancelling && (typeLabel(cancelling.taskType) + ' · ' + cancelling.specialty + ' · patient ' + cancelling.sourcePatientId)"></p>
+        <label>Reason
+          <textarea rows="3" x-model="cancelReason" placeholder="e.g. Patient declined, moved away, duplicate"></textarea>
+        </label>
+        <footer>
+          <button type="button" class="secondary outline" @click="cancelling = null">Keep task</button>
+          <button type="button" class="danger" @click="confirmCancel()">Cancel task</button>
+        </footer>
+      </article>
+    </dialog>
   </div>
 </body>
 </html>

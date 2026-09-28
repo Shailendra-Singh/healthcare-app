@@ -32,6 +32,8 @@ document.addEventListener('alpine:init', () => {
     page: 1,
     pageSize: 50,
     loadingTasks: false,
+    cancelling: null, // the task in the cancel dialog
+    cancelReason: '',
 
     // Patients
     patients: [],
@@ -40,7 +42,7 @@ document.addEventListener('alpine:init', () => {
     patientSearch: '',
     searching: false,
     loadingPatients: false,
-    selected: null, // { patient, programs, programsForbidden, tasks }
+    selected: null, // { patient, programs, programsForbidden, tasks }; programs and tasks: null while loading, false on error
 
     async init() {
       // The gateway's logout returns to "/?state=…"; keep the address bar clean
@@ -62,7 +64,7 @@ document.addEventListener('alpine:init', () => {
       this.view = view === 'patients' ? 'patients' : 'worklist';
       if (this.view === 'worklist') {
         this.loadTasks();
-      } else if (this.patients.length === 0) {
+      } else if (this.patients.length === 0 && !this.searching) {
         this.loadPatients();
       }
     },
@@ -121,15 +123,25 @@ document.addEventListener('alpine:init', () => {
 
     /** Start (and take) a task, send it back to open, complete it or cancel it. The gateway records who did it. */
     async changeTask(task, status) {
+      if (status === 'CANCELLED') {
+        this.cancelReason = '';
+        this.cancelling = task; // the dialog asks for a reason, then calls confirmCancel()
+        return;
+      }
       const change = { status };
       if (status === 'IN_PROGRESS') {
         change.assignee = this.me.username;
       }
-      if (status === 'CANCELLED') {
-        const reason = prompt('Why cancel this task?');
-        if (reason === null) return;
-        change.reason = reason;
-      }
+      await this.patchTask(task, change);
+    },
+
+    async confirmCancel() {
+      const task = this.cancelling;
+      this.cancelling = null;
+      await this.patchTask(task, { status: 'CANCELLED', reason: this.cancelReason.trim() || null });
+    },
+
+    async patchTask(task, change) {
       try {
         await this.api(`/task-generation/api/v1/tasks/${task.taskId}`, {
           method: 'PATCH',
@@ -177,6 +189,7 @@ document.addEventListener('alpine:init', () => {
     /** From the worklist: open the patient's detail on the Patients view. */
     async openPatient(sourcePatientId) {
       this.patientSearch = sourcePatientId;
+      this.searching = true; // so switching to the Patients view does not load the full list over the result
       location.hash = '#/patients';
       await this.searchPatient();
     },
@@ -194,11 +207,13 @@ document.addEventListener('alpine:init', () => {
       } else if (programs.reason.status === 403) {
         this.selected.programsForbidden = true; // schedulers do not see care needs
       } else {
+        this.selected.programs = false;
         this.showError(programs.reason);
       }
       if (tasks.status === 'fulfilled') {
         this.selected.tasks = tasks.value;
       } else {
+        this.selected.tasks = false;
         this.showError(tasks.reason);
       }
     },
@@ -211,6 +226,18 @@ document.addEventListener('alpine:init', () => {
 
     /** diabetes-management -> Diabetes Management */
     programLabel: (id) => id.split('-').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+    /** high-risk -> High risk */
+    tierLabel: (id) => (id.charAt(0).toUpperCase() + id.slice(1)).replaceAll('-', ' '),
+
+    /** scheduler.user -> SU */
+    initials() {
+      const parts = (this.me?.username || '?').split(/[.\-_@ ]+/).filter(Boolean);
+      return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('');
+    },
+
+    overdueCount() {
+      return this.tasks.filter((task) => this.isOverdue(task)).length;
+    },
 
     roleHint() {
       const roles = this.me?.roles || [];

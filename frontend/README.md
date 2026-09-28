@@ -1,7 +1,8 @@
 # frontend
 
 Care Tasks: the web app for schedulers and the clinical team. Plain HTML, CSS and JavaScript with
-[Alpine.js](https://alpinejs.dev) (vendored in `public/vendor`, no build step, no npm), served by nginx.
+[Alpine.js](https://alpinejs.dev) and [Pico CSS](https://picocss.com) (vendored in `public/vendor`, no build
+step, no npm), served by nginx.
 
 - **Login page**: *Sign in* goes to the organisation's Keycloak page; the app never sees passwords.
 - **Worklist**: the tasks the user's role may see, filtered by task type, specialty, status and "assigned to me";
@@ -11,7 +12,9 @@ Care Tasks: the web app for schedulers and the clinical team. Plain HTML, CSS an
   - Admin: every task.
 - **Patients**: the patient list and search; a patient's care programs and needs (clinical team and admin) and
   their tasks.
-- **Swagger UI** link in the header and on the login page.
+- **Swagger UI** link in the user menu and on the login page.
+- **Phones**: tables become cards, the tabs move to a bar at the bottom, and the patient detail opens full
+  screen. Light and dark themes follow the device. It can be added to the home screen (web app manifest).
 
 ## How it fits together
 
@@ -49,6 +52,8 @@ podman run --rm -p 3000:8080 -e GATEWAY_URL=http://host.containers.internal:8080
 |---|---|
 | `public/index.html` | The page: login, worklist and patients views |
 | `public/app.js` | The Alpine.js component: session check, API calls, filters, task actions |
-| `public/app.css` | Styles |
-| `public/vendor/` | Alpine.js 3.17.4 (see its README for source and integrity hash) |
+| `public/app.css` | The app's styles on top of Pico (badges, cards on phones, tab bar, patient sheet) |
+| `public/favicon.svg`, `favicon.ico`, `icons/` | App icon: browser tab, iOS home screen, Android (manifest) |
+| `public/manifest.json` | Web app manifest: name, colours and icons for "Add to home screen" |
+| `public/vendor/` | Alpine.js 3.17.4 and Pico CSS 2.1.1 (see its README for sources and integrity hashes) |
 | `nginx/default.conf.template` | Static files, proxy to the gateway, security headers |

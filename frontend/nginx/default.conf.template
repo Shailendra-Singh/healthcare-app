@@ -16,6 +16,12 @@ server {
     # The session cookie carries Keycloak's tokens and can be several KB
     large_client_header_buffers 4 32k;
 
+    # Compress the app's files and the API's JSON (Pico's CSS goes from 83 KB to about 12 KB)
+    gzip on;
+    gzip_proxied any;
+    gzip_min_length 1024;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
     location = / {
         rewrite ^ /index.html last;
     }
