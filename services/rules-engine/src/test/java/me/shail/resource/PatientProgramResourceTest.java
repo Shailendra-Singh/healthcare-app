@@ -27,7 +27,8 @@ class PatientProgramResourceTest {
     @Test
     void returnsProgramsTiersEvidenceAndNeeds() {
         CareNeedDto need = new CareNeedDto("P1", "diabetes-management", "unmonitored", "Endocrinology", 90, null,
-                LocalDate.of(2026, 9, 28), null, NeedStatus.OVERDUE, "high", "Get labs done");
+                LocalDate.of(2026, 9, 28), null, NeedStatus.OVERDUE, "high", "Get labs done",
+                new CareNeedDto.TaskPolicy("scheduling", "referral"));
         when(resultsService.patientPrograms("P1")).thenReturn(List.of(new PatientProgramDto("diabetes-management",
                 "Diabetes Management", null, "unmonitored", "Unmonitored",
                 Map.of("HbA1c", "no result in the last 6 months"), List.of(need))));
@@ -40,7 +41,8 @@ class PatientProgramResourceTest {
                 .body("[0].evidence.HbA1c", is("no result in the last 6 months"))
                 .body("[0].needs[0].status", is("OVERDUE"))
                 .body("[0].needs[0].lastVisitDate", is((Object) null))
-                .body("[0].needs[0].note", is("Get labs done"));
+                .body("[0].needs[0].note", is("Get labs done"))
+                .body("[0].needs[0].tasks.neverSeen", is("referral"));
     }
 
     @Test

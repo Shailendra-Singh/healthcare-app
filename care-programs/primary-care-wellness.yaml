@@ -23,3 +23,8 @@ tiers:
     needs:
       - visit: PCP
         everyDays: 365
+
+# How task-generation turns a due PCP visit into a task
+tasks:
+  pastCadence: scheduling      # seen a PCP before, last visit older than the cadence
+  neverSeen: none              # referral tasks only apply to specialist visits

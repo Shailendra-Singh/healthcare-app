@@ -1,5 +1,6 @@
-# clinical-data stack: PostgreSQL 18, the Quarkus app and the CSV ETL, on clinical-data-network.
-# (The rules-engine has its own stack in ../rules-engine and joins this network to call the API.)
+# clinical-data stack: PostgreSQL 18, the Quarkus app and the CSV ETL, on the private clinical-data-network.
+# Only the app also joins clinical-data-api-network, which consumers (the rules-engine) join to call the API;
+# the database is reachable from this stack only.
 #
 # Build the app first (the image copies target/quarkus-app), then start everything:
 #
@@ -52,6 +53,7 @@ services:
     restart: unless-stopped
     networks:
       - clinical-data-network
+      - clinical-data-api-network
 
   # Loads the four CSVs from the repo's data/ folder whenever their checksums change
   etl:
@@ -79,5 +81,9 @@ services:
       - clinical-data-network
 
 networks:
+  # Private: this stack only
   clinical-data-network:
     name: clinical-data-network
+  # The API, for consumers; only the app joins it here
+  clinical-data-api-network:
+    name: clinical-data-api-network

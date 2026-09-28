@@ -106,6 +106,32 @@ class ProgramParserTest {
     }
 
     @Test
+    void parsesATaskPolicy() {
+        ProgramDefinition program = ProgramParser.parse(VALID + """
+                tasks:
+                  pastCadence: scheduling
+                  neverSeen: none
+                """);
+
+        assertEquals(new ProgramDefinition.TaskPolicy("scheduling", "none"), program.tasks());
+        assertNull(ProgramParser.parse(VALID).tasks(), "a program without tasks produces none");
+    }
+
+    @Test
+    void rejectsAnInvalidTaskPolicy() {
+        ProgramDefinitionException e = assertThrows(ProgramDefinitionException.class, () -> ProgramParser.parse(VALID + """
+                tasks:
+                  pastCadence: call
+                  onHold: none
+                """));
+
+        assertEquals(List.of(
+                "tasks: unknown key 'onHold'",
+                "tasks.pastCadence: expected scheduling, referral or none, got 'call'",
+                "tasks.neverSeen: required"), e.errors());
+    }
+
+    @Test
     void rejectsInvalidYaml() {
         ProgramDefinitionException e = assertThrows(ProgramDefinitionException.class,
                 () -> ProgramParser.parse("id: [unclosed"));

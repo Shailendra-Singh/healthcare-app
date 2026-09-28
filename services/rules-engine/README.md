@@ -28,8 +28,9 @@ Swagger UI: http://localhost:8082/q/swagger-ui
 ## Running
 
 rules-engine has its own stack (`compose.yaml` here): the app and a dedicated PostgreSQL
-(`rules-engine-db`, data in `.data/`) on `rules-engine-network`. The app also joins
-`clinical-data-network` to call the clinical-data API, so start the clinical-data stack first:
+(`rules-engine-db`, data in `.data/`) on the private `rules-engine-network`. Only the app joins the API
+networks: `clinical-data-api-network` to call clinical-data (so start that stack first) and
+`rules-engine-api-network`, which task-generation joins to call this API:
 
 ```sh
 (cd ../clinical-data && ./mvnw package -DskipTests && podman compose up -d --build)
@@ -39,9 +40,9 @@ podman compose up -d --build        # or: docker compose up -d --build
 
 | | From your machine | Inside the networks |
 |---|---|---|
-| rules-engine | `localhost:8082` | `rules-engine:8080` |
+| rules-engine | `localhost:8082` | `rules-engine:8080` (rules-engine-api-network) |
 | rules-engine-db | `localhost:5433` | `rules-engine-db:5432` (rules-engine-network only) |
-| clinical-data API | `localhost:8081` | `clinical-data:8080` (clinical-data-network) |
+| clinical-data API | `localhost:8081` | `clinical-data:8080` (clinical-data-api-network) |
 
 `.env` next to this file:
 

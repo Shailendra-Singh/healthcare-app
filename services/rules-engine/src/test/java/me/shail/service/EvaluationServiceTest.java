@@ -155,6 +155,49 @@ class EvaluationServiceTest {
     }
 
     @Test
+    void careNeedsCarryTheirProgramsTaskPolicy() {
+        evaluationService.run(EvaluationRun.Trigger.MANUAL);
+
+        List<CareNeedDto> needs = results.careNeeds(null, null, null, null, 1, 100);
+        assertTrue(needs.stream().filter(n -> n.programId().equals("diabetes-management"))
+                .allMatch(n -> n.tasks().equals(new CareNeedDto.TaskPolicy("scheduling", "referral"))));
+        assertTrue(needs.stream().filter(n -> n.programId().equals("primary-care-wellness"))
+                .allMatch(n -> n.tasks().equals(new CareNeedDto.TaskPolicy("scheduling", "none"))));
+        assertEquals("referral", results.patientPrograms(seniorDiabetic.sourcePatientId()).stream()
+                .filter(p -> p.programId().equals("diabetes-management")).findFirst().orElseThrow()
+                .needs().getFirst().tasks().neverSeen());
+    }
+
+    @Test
+    void careNeedsOfARunPageInAStableOrderAndStayOnThatRun() {
+        EvaluationRun first = evaluationService.run(EvaluationRun.Trigger.MANUAL);
+        when(clinicalData.evaluationInputs(1, 2, AS_OF)).thenReturn(List.of(adult));
+        when(clinicalData.evaluationInputs(2, 2, AS_OF)).thenReturn(List.of());
+        EvaluationRun second = evaluationService.run(EvaluationRun.Trigger.MANUAL);
+
+        List<CareNeedDto> page1 = results.careNeedsOfRun(first.id, 1, 4).orElseThrow();
+        List<CareNeedDto> page2 = results.careNeedsOfRun(first.id, 2, 4).orElseThrow();
+        assertEquals(4, page1.size());
+        assertEquals(3, page2.size(), "the first run's 7 needs, although a newer run has only 1");
+        List<String> keys = java.util.stream.Stream.concat(page1.stream(), page2.stream())
+                .map(n -> n.sourcePatientId() + "/" + n.programId() + "/" + n.specialty()).toList();
+        assertEquals(keys.stream().sorted().toList(), keys, "ordered by patient, program, specialty");
+
+        assertEquals(1, results.careNeedsOfRun(second.id, 1, 100).orElseThrow().size());
+        assertEquals(second.id, results.latestSucceededRun().orElseThrow().runId());
+    }
+
+    @Test
+    void careNeedsOfARunThatDidNotSucceedAreNotFound() {
+        when(clinicalData.evaluationInputs(anyLong(), anyInt(), eq(AS_OF))).thenThrow(new ProcessingException("down"));
+        EvaluationRun failed = evaluationService.run(EvaluationRun.Trigger.MANUAL);
+
+        assertTrue(results.careNeedsOfRun(failed.id, 1, 10).isEmpty());
+        assertTrue(results.careNeedsOfRun(999L, 1, 10).isEmpty());
+        assertTrue(results.latestSucceededRun().isEmpty());
+    }
+
+    @Test
     void aFailureIsRecordedOnTheRunAndKeepsThePreviousResults() {
         evaluationService.run(EvaluationRun.Trigger.MANUAL);
         when(clinicalData.evaluationInputs(anyLong(), anyInt(), eq(AS_OF))).thenThrow(new ProcessingException("Connection refused"));

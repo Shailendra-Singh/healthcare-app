@@ -55,7 +55,8 @@ class ProgramEvaluatorTest {
     @Test
     void eligiblePatientWithNoMatchingTierHasNoTierOrNeeds() {
         ProgramDefinition program = new ProgramDefinition("p", "P", null, null, new Condition.Age(18, null),
-                List.of(new ProgramDefinition.Tier("seniors", "Seniors", new Condition.Age(65, null), List.of(PCP_YEARLY))));
+                List.of(new ProgramDefinition.Tier("seniors", "Seniors", new Condition.Age(65, null), List.of(PCP_YEARLY))),
+                null);
 
         var result = ProgramEvaluator.evaluate(program, Patients.aged(40, AS_OF).build(), AS_OF).orElseThrow();
 
