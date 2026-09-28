@@ -1,11 +1,13 @@
 package me.shail.repository;
 
+import jakarta.data.page.PageRequest;
 import jakarta.data.repository.Find;
 import jakarta.data.repository.Insert;
 import jakarta.data.repository.Query;
 import jakarta.data.repository.Repository;
 import jakarta.data.repository.Update;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import me.shail.model.EvaluationRun;
 
@@ -23,6 +25,9 @@ public interface EvaluationRunRepository {
 
     @Query("from EvaluationRun order by id desc limit 1")
     Optional<EvaluationRun> findLatest();
+
+    @Query("from EvaluationRun order by id desc")
+    List<EvaluationRun> findNewestFirst(PageRequest pageRequest);
 
     @Query("from EvaluationRun where status = :status order by id desc limit 1")
     Optional<EvaluationRun> findLatestByStatus(EvaluationRun.Status status);

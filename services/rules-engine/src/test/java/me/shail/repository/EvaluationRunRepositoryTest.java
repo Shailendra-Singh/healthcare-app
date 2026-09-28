@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import jakarta.data.page.PageRequest;
 import jakarta.inject.Inject;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import me.shail.model.EvaluationRun;
 import me.shail.support.TestDatabase;
 import org.junit.jupiter.api.BeforeEach;
@@ -60,6 +62,20 @@ class EvaluationRunRepositoryTest {
             assertEquals(EvaluationRun.Status.FAILED, run.status);
             assertTrue(run.errorMessage.startsWith("Abandoned"));
             assertEquals(0, repository.countRunning());
+        });
+    }
+
+    @Test
+    void findNewestFirstPagesFromTheLatestRun() {
+        Long first = insert(EvaluationRun.Status.SUCCEEDED);
+        Long second = insert(EvaluationRun.Status.FAILED);
+        Long third = insert(EvaluationRun.Status.SUCCEEDED);
+
+        QuarkusTransaction.requiringNew().run(() -> {
+            assertEquals(List.of(third, second),
+                    repository.findNewestFirst(PageRequest.ofPage(1, 2, false)).stream().map(run -> run.id).toList());
+            assertEquals(List.of(first),
+                    repository.findNewestFirst(PageRequest.ofPage(2, 2, false)).stream().map(run -> run.id).toList());
         });
     }
 

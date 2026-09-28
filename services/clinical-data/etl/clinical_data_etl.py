@@ -6,12 +6,19 @@ DATA_DIR. When all four are present and their SHA-256 checksums differ from the 
 it truncates and reloads the raw staging tables and calls etl.process_run, which upserts into dbo.
 After every check it overwrites the single etl.heartbeat row with the time, outcome and interval.
 
+A small HTTP API lets the api-gateway (admins) ask for a check now instead of waiting for the interval:
+    POST /api/v1/runs                     check now; load if the files changed
+    POST /api/v1/runs  {"force": true}    check now; load even if the files are unchanged
+    GET  /q/health                        200 while the ETL is running
+The outcome shows up in etl.heartbeat and etl.load_run, which clinical-data's API serves.
+
 Environment:
     POSTGRES_USER, POSTGRES_PASSWORD, DB_HOST, DB_NAME   required
     DB_HOST_PORT              default 5432
     DATA_DIR                  default /data
     ETL_INTERVAL_SECONDS      default 300
     ETL_FILE_SETTLE_SECONDS   default 30; files modified more recently are assumed still being written
+    ETL_HTTP_PORT             default 8080; 0 turns the HTTP API off
     LOG_LEVEL                 default INFO
 
 Usage:
@@ -20,6 +27,7 @@ Usage:
 """
 
 import hashlib
+import json
 import logging
 import os
 import signal
@@ -27,6 +35,8 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import psycopg
@@ -59,6 +69,7 @@ class Config:
     data_dir: Path
     interval_seconds: int
     settle_seconds: int
+    http_port: int
     conninfo: str
 
     @staticmethod
@@ -73,6 +84,7 @@ class Config:
             data_dir=Path(os.environ.get("DATA_DIR", "/data")),
             interval_seconds=int(os.environ.get("ETL_INTERVAL_SECONDS", "300")),
             settle_seconds=int(os.environ.get("ETL_FILE_SETTLE_SECONDS", "30")),
+            http_port=int(os.environ.get("ETL_HTTP_PORT", "8080")),
             conninfo=make_conninfo(
                 host=required("DB_HOST"),
                 port=os.environ.get("DB_HOST_PORT", "5432"),
@@ -233,8 +245,11 @@ def record_heartbeat(conn: psycopg.Connection, config: Config, outcome: str, det
         log.warning("Could not record the heartbeat: %s", str(e).strip())
 
 
-def check_and_load(conn: psycopg.Connection, config: Config) -> tuple[str, str]:
-    """Returns the outcome (waiting, busy, unchanged, loaded or failed) and a one-line detail."""
+def check_and_load(conn: psycopg.Connection, config: Config, force: bool) -> tuple[str, str]:
+    """Returns the outcome (waiting, busy, unchanged, loaded or failed) and a one-line detail.
+
+    With force, the files are loaded even when they are unchanged since the last successful run.
+    """
     files, waiting_detail = scan(config)
     if files is None:
         log.info("%s", waiting_detail)
@@ -248,7 +263,7 @@ def check_and_load(conn: psycopg.Connection, config: Config) -> tuple[str, str]:
     close_abandoned_runs(conn)
 
     last_run_id, last_checksums = last_loaded_checksums(conn)
-    if last_checksums == {name: f.checksum for name, f in files.items()}:
+    if not force and last_checksums == {name: f.checksum for name, f in files.items()}:
         log.info("Files unchanged since run %d; nothing to load", last_run_id)
         return "unchanged", f"Files unchanged since run {last_run_id}"
 
@@ -265,8 +280,11 @@ def check_and_load(conn: psycopg.Connection, config: Config) -> tuple[str, str]:
     return "loaded", f"Run {run_id} SUCCEEDED with {rejects} rejected rows"
 
 
-def run_cycle(config: Config) -> str:
-    """One check-and-load pass. Returns the outcome, for logging, retry timing and the exit code."""
+def run_cycle(config: Config, request: "RunRequest | None" = None) -> str:
+    """One check-and-load pass; request is set when someone asked for it through the HTTP API.
+
+    Returns the outcome, for logging, retry timing and the exit code.
+    """
     with psycopg.connect(config.conninfo, autocommit=True) as conn:
         conn.add_notice_handler(lambda notice: log.info("db: %s", notice.message_primary))
 
@@ -274,9 +292,99 @@ def run_cycle(config: Config) -> str:
             log.info("Schema not created yet (the clinical-data app runs the Flyway migrations)")
             return "not_ready"
 
-        outcome, detail = check_and_load(conn, config)
+        force = request is not None and request.force
+        if request:
+            log.info("Check requested through the API%s", " (force reload)" if force else "")
+        outcome, detail = check_and_load(conn, config, force)
+        if request:
+            detail = f"{'Requested reload' if force else 'Requested check'}: {detail}"
         record_heartbeat(conn, config, outcome, detail)
         return outcome
+
+
+@dataclass(frozen=True)
+class RunRequest:
+    force: bool
+
+
+class Trigger:
+    """Wakes the main loop early when a run is requested through the HTTP API (or when it should stop)."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._wake = threading.Event()
+        self._request: RunRequest | None = None
+
+    def request(self, force: bool) -> None:
+        with self._lock:
+            # Requests made while a cycle runs are merged into one follow-up cycle; force wins
+            self._request = RunRequest(force or (self._request is not None and self._request.force))
+        self._wake.set()
+
+    def wake(self) -> None:
+        self._wake.set()
+
+    def wait(self, timeout: float) -> RunRequest | None:
+        """Sleeps until the timeout or a wake-up; returns the pending request, if any, and clears it."""
+        self._wake.wait(timeout)
+        with self._lock:
+            self._wake.clear()
+            request, self._request = self._request, None
+        return request
+
+
+class ApiHandler(BaseHTTPRequestHandler):
+    """POST /api/v1/runs asks for a check now; GET /q/health answers while the ETL runs."""
+
+    server: "ApiServer"
+    MAX_BODY = 1024
+
+    def do_POST(self) -> None:
+        if self.path.split("?")[0] != "/api/v1/runs":
+            return self._reply(HTTPStatus.NOT_FOUND, {"message": "Not found"})
+        length = int(self.headers.get("Content-Length") or 0)
+        if length > self.MAX_BODY:
+            return self._reply(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"message": "Request body too large"})
+        force = False
+        if length:
+            try:
+                body = json.loads(self.rfile.read(length))
+                force = body.get("force", False)
+            except (ValueError, AttributeError):
+                return self._reply(HTTPStatus.BAD_REQUEST, {"message": 'Expected a JSON object, e.g. {"force": true}'})
+            if not isinstance(force, bool):
+                return self._reply(HTTPStatus.BAD_REQUEST, {"message": "force must be true or false"})
+        self.server.trigger.request(force)
+        self._reply(HTTPStatus.ACCEPTED, {
+            "force": force,
+            "message": ("Reload requested: the files are loaded again even if unchanged"
+                        if force else "Check requested: the files are loaded if they changed")
+                       + ". The outcome appears in /etl-heartbeat and /etl-runs on clinical-data.",
+        })
+
+    def do_GET(self) -> None:
+        if self.path.split("?")[0] == "/q/health":
+            return self._reply(HTTPStatus.OK, {"status": "UP"})
+        self._reply(HTTPStatus.NOT_FOUND, {"message": "Not found"})
+
+    def _reply(self, status: HTTPStatus, body: dict) -> None:
+        data = json.dumps(body).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def log_message(self, format: str, *args) -> None:
+        log.debug("http: " + format, *args)
+
+
+class ApiServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def __init__(self, port: int, trigger: Trigger) -> None:
+        super().__init__(("0.0.0.0", port), ApiHandler)
+        self.trigger = trigger
 
 
 def main(argv: list[str]) -> int:
@@ -286,13 +394,26 @@ def main(argv: list[str]) -> int:
     once = "--once" in argv
 
     stop = threading.Event()
+    trigger = Trigger()
+
+    def shut_down(*_) -> None:
+        stop.set()
+        trigger.wake()
+
     for sig in (signal.SIGTERM, signal.SIGINT):
-        signal.signal(sig, lambda *_: stop.set())
+        signal.signal(sig, shut_down)
+
+    server = None
+    if config.http_port and not once:
+        server = ApiServer(config.http_port, trigger)
+        threading.Thread(target=server.serve_forever, name="http", daemon=True).start()
+        log.info("HTTP API on port %d: POST /api/v1/runs to check now", config.http_port)
 
     log.info("Watching %s every %ds", config.data_dir, config.interval_seconds)
+    request = None
     while not stop.is_set():
         try:
-            outcome = run_cycle(config)
+            outcome = run_cycle(config, request)
         except psycopg.OperationalError as e:
             log.warning("Database unavailable: %s", str(e).strip())
             outcome = "db_down"
@@ -302,8 +423,10 @@ def main(argv: list[str]) -> int:
 
         if once:
             return 1 if outcome in ("failed", "db_down", "not_ready") else 0
-        stop.wait(RETRY_SECONDS if outcome in ("db_down", "not_ready") else config.interval_seconds)
+        request = trigger.wait(RETRY_SECONDS if outcome in ("db_down", "not_ready") else config.interval_seconds)
 
+    if server:
+        server.shutdown()
     log.info("Stopped")
     return 0
 

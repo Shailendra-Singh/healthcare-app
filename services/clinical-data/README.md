@@ -1,62 +1,55 @@
 # clinical-data
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+Patients, diagnoses, lab results and encounters, loaded from CSV files and served as a read-only REST API
+(Quarkus, Hibernate Reactive, PostgreSQL 18). The rules-engine reads it to evaluate care programs; people reach it
+through the api-gateway.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## Data flow
 
-## Running the application in dev mode
-
-You can run your application in dev mode that enables live coding using:
-
-```shell script
-./mvnw quarkus:dev
+```
+data/*.csv ──► etl (Python) ──► raw.* staging tables ──► etl.process_run ──► dbo.* tables ──► REST API
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8081/q/dev/>.
+- The **ETL** (`etl/`) checks `data/` every `ETL_INTERVAL_SECONDS` for `patients.csv`, `diagnoses.csv`, `labs.csv`
+  and `encounters.csv`. When all four are present and their checksums changed, it reloads the raw tables and calls
+  `etl.process_run`, which upserts into `dbo` on each record's natural key. Rows that conflict are rejected and
+  listed in `etl.load_reject`.
+- Admins can ask for a check now from the frontend's ETL page (`POST /etl/api/v1/runs` through the gateway;
+  `{"force": true}` reloads unchanged files).
+- Flyway migrations (`src/main/resources/db/migration`) create the schemas `etl`, `raw` and `dbo`.
 
-## Packaging and running the application
+## API
 
-The application can be packaged using:
+Read-only; Swagger UI at `/q/swagger-ui`. All paths are under `/api/v1`.
 
-```shell script
-./mvnw package
+| Path | |
+|---|---|
+| `/patients`, `/patients/{id}`, `/patients/source/{sourcePatientId}` | Patients, paged |
+| `/patients/{id}/diagnoses`, `/lab-results`, `/encounters` | A patient's clinical history |
+| `/languages`, `/specialties`, `/lab-tests`, `/providers`, `/condition-groups`, `/diagnosis-codes` | Reference data |
+| `/evaluation-inputs` | Everything the rules-engine needs, in bulk |
+| `/etl-runs`, `/etl-runs/latest`, `/etl-heartbeat` | ETL loads and the last folder check |
+
+## Running
+
+With the whole stack, from the repository root: `podman compose up -d --build`.
+
+On its own (`.env` next to this file with `POSTGRES_USER`, `POSTGRES_PASSWORD` and `DB_NAME`):
+
+```sh
+./mvnw package -DskipTests
+podman compose -f compose.yaml -f compose.dev.yaml up -d --build   # API on localhost:8081, ETL on 8084
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+Dev mode (live reload, Dev UI at http://localhost:8081/q/dev/) against the container database:
+`podman compose -f compose.yaml -f compose.dev.yaml up -d postgres`, then `./mvnw quarkus:dev`.
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+| Variable | Default | |
+|---|---|---|
+| `ETL_INTERVAL_SECONDS` | `300` | How often the ETL checks the data folder |
+| `ETL_FILE_SETTLE_SECONDS` | `30` | Files changed more recently are treated as still being written |
 
-If you want to build an _über-jar_, execute the following command:
+## Tests
 
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/clinical-data-1.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+`./mvnw test` runs the unit and integration tests; the integration tests start PostgreSQL through Dev Services
+(Podman or Docker must be running).

@@ -71,6 +71,11 @@ services:
       ETL_FILE_SETTLE_SECONDS: ${ETL_FILE_SETTLE_SECONDS:-30}
     volumes:
       - ../../data:/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/q/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,6 +85,8 @@ services:
     restart: unless-stopped
     networks:
       - clinical-data-network
+      # Its HTTP API (check now), for the api-gateway only
+      - etl-api-network
 
 networks:
   # Private: this stack only
@@ -88,3 +95,6 @@ networks:
   # The API, for consumers; only the app joins it here
   clinical-data-api-network:
     name: clinical-data-api-network
+  # The ETL's HTTP API, for the api-gateway
+  etl-api-network:
+    name: etl-api-network

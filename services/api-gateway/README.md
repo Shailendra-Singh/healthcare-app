@@ -14,6 +14,7 @@ clinical-data, rules-engine and task-generation, and serves one Swagger UI for a
 | clinical-data: patients, encounters, reference data | ✔ | ✔ | ✔ |
 | clinical-data: diagnoses, labs | ✔ | ✔ | – |
 | clinical-data: ETL runs, heartbeat, evaluation inputs | ✔ | – | – |
+| etl: run the ETL now (`POST /etl/api/v1/runs`, `{"force": true}` reloads unchanged files) | ✔ | – | – |
 
 - Deny by default: `AccessPolicy` lists every grant; anything else is 403 (admin may call every API).
 - Task types per role are configuration (`gateway.task-access.*`); a task of another type answers 404, as if it
@@ -22,8 +23,9 @@ clinical-data, rules-engine and task-generation, and serves one Swagger UI for a
 
 ## Login
 
-- **Browsers** (a frontend): open any protected page and the gateway runs the Keycloak login and keeps the
-  session in a cookie; `GET /logout` signs out. JavaScript calls without a session get 499 instead of a redirect.
+- **Browsers** (the [frontend](../../frontend), which proxies these paths on its own origin): `GET /login` runs
+  the Keycloak login, keeps the session in a cookie and returns to `/`; `GET /logout` signs out and returns to `/`.
+  JavaScript calls without a session get 499 instead of a redirect.
 - **API clients and Swagger UI** send a bearer token issued by Keycloak for the `api-gateway` audience.
 - `GET /api/v1/me` returns the user, their roles and the task types they see.
 
@@ -55,7 +57,7 @@ only through the gateway (each has a `compose.dev.yaml` that publishes its ports
 | `GATEWAY_CLIENT_SECRET` | Secret of Keycloak's `api-gateway` client; the same value as in `services/keycloak/.env` |
 
 Dev mode (`./mvnw quarkus:dev`, port 8080) uses Keycloak at `localhost:8180` and the services at
-`localhost:8081`-`8083`, so start those stacks with their `compose.dev.yaml`.
+`localhost:8081`-`8083` and the ETL at `localhost:8084`, so start those stacks with their `compose.dev.yaml`.
 
 ## Tests
 

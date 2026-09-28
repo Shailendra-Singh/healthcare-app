@@ -1,6 +1,7 @@
 package me.shail.resource;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.after;
@@ -74,6 +75,23 @@ class EvaluationResourceTest {
                 .body("programErrors[0]", is("new.yaml: name: required (skipped)"))
                 .body("summary.tiers[0].patients", is(14))
                 .body("summary.needsByStatus.OVERDUE", is(33));
+    }
+
+    @Test
+    void listReturnsOnePageOfRuns() {
+        when(resultsService.runs(2, 10)).thenReturn(List.of(
+                new EvaluationRunDto(9L, EvaluationRun.Trigger.DATA_CHANGED, LocalDate.of(2026, 9, 28),
+                        EvaluationRun.Status.SUCCEEDED, 3L, 8, List.of(), null, null, null,
+                        new EvaluationRunDto.Summary(List.of(), Map.of("OVERDUE", 17L))),
+                new EvaluationRunDto(8L, EvaluationRun.Trigger.MANUAL, LocalDate.of(2026, 9, 28),
+                        EvaluationRun.Status.FAILED, 2L, null, List.of(), "clinical-data unavailable", null, null, null)));
+
+        given().queryParam("page", 2).queryParam("size", 10).when().get("/api/v1/evaluations")
+                .then().statusCode(200)
+                .body("runId", contains(9, 8))
+                .body("[0].summary.needsByStatus.OVERDUE", is(17))
+                .body("[1].errorMessage", is("clinical-data unavailable"));
+        given().queryParam("size", 101).when().get("/api/v1/evaluations").then().statusCode(400);
     }
 
     @Test

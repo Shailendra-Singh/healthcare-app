@@ -23,6 +23,13 @@ podman compose up -d        # or: docker compose up -d
 
 Access tokens carry the roles in `realm_access.roles` and `api-gateway` as audience.
 
+## Login theme
+
+`themes/care-tasks` gives the login pages the Care Tasks look (logo, colours, font, light and dark mode). It
+extends Keycloak's own `keycloak.v2` theme and only adds a stylesheet and images, so every page and flow stays
+Keycloak's. Compose mounts it into `/opt/keycloak/themes`, and the realm's `loginTheme` selects it. `start-dev`
+does not cache themes: edit `resources/css/care-tasks.css` and reload the page.
+
 ## .env
 
 | Variable | Purpose |

@@ -3,6 +3,7 @@ package me.shail.resource;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.Mockito.when;
@@ -14,7 +15,7 @@ import me.shail.proxy.DownstreamClient;
 import me.shail.proxy.DownstreamResponse;
 import org.junit.jupiter.api.Test;
 
-/** /api/v1/me, the rewritten service specs and the Swagger UI dropdown. */
+/** /api/v1/me, /login, the rewritten service specs and the Swagger UI dropdown. */
 @QuarkusTest
 class GatewayEndpointsTest {
 
@@ -35,6 +36,14 @@ class GatewayEndpointsTest {
     @TestSecurity(user = "ada", roles = "admin")
     void adminSeesAllTaskTypes() {
         given().when().get("/api/v1/me").then().statusCode(200).body("taskTypes", contains("ALL"));
+    }
+
+    @Test
+    @TestSecurity(user = "sam", roles = "scheduler")
+    void loginSendsASignedInUserBackToTheApp() {
+        given().redirects().follow(false).when().get("/login")
+                .then().statusCode(303)
+                .header("Location", endsWith("/"));
     }
 
     @Test

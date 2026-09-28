@@ -1,6 +1,7 @@
 {
   "realm": "healthcare",
-  "displayName": "Healthcare",
+  "displayName": "Care Tasks",
+  "loginTheme": "care-tasks",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
@@ -38,13 +39,15 @@
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
+        "http://localhost:3000/*",
         "http://localhost:8080/*"
       ],
       "webOrigins": [
+        "http://localhost:3000",
         "http://localhost:8080"
       ],
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:8080/*"
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:8080/*"
       },
       "protocolMappers": [
         {
@@ -70,9 +73,11 @@
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "redirectUris": [
+        "http://localhost:3000/q/swagger-ui/*",
         "http://localhost:8080/q/swagger-ui/*"
       ],
       "webOrigins": [
+        "http://localhost:3000",
         "http://localhost:8080"
       ],
       "attributes": {

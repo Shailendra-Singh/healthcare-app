@@ -13,3 +13,6 @@ services:
   clinical-data:
     ports:
       - "8081:8080"   # clinical-data at localhost:8081
+  etl:
+    ports:
+      - "8084:8080"   # the ETL's HTTP API at localhost:8084
