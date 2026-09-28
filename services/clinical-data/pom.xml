@@ -92,6 +92,12 @@
             <artifactId>quarkus-junit</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Mockito: @InjectMock for Quarkus tests, MockitoExtension for plain unit tests -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit-mockito</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-test-hibernate-reactive-panache</artifactId>
