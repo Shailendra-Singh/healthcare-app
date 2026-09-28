@@ -50,8 +50,8 @@ class EvaluationInputQueriesTest {
     @BeforeEach
     void seed() {
         db.reset();
-        db.insertDiagnosisCode("E11.65", TestData.FAKER.medical().diseaseName(), "E11");
-        db.insertDiagnosisCode("Z00.00", TestData.FAKER.medical().diseaseName(), null);
+        db.insertDiagnosisCode("E11.65", TestData.FAKER.disease().anyDisease(), "E11");
+        db.insertDiagnosisCode("Z00.00", TestData.FAKER.disease().anyDisease(), null);
         short hba1c = db.insertLabTest("HbA1c");
         short ldl = db.insertLabTest("LDL");
         short endocrinology = db.insertSpecialty("Endocrinology");

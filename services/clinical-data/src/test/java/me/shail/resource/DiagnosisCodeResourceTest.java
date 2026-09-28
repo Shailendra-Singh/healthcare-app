@@ -26,9 +26,9 @@ class DiagnosisCodeResourceTest {
     @InjectMock
     DiagnosisCodeService diagnosisCodeService;
 
-    private final DiagnosisCodeDto diabetes = new DiagnosisCodeDto("E11.65", TestData.FAKER.medical().diseaseName(),
+    private final DiagnosisCodeDto diabetes = new DiagnosisCodeDto("E11.65", TestData.FAKER.disease().anyDisease(),
             new ConditionGroupDto((short) 2, "E11", "Type 2 Diabetes", true));
-    private final DiagnosisCodeDto checkup = new DiagnosisCodeDto("Z00.00", TestData.FAKER.medical().diseaseName(), null);
+    private final DiagnosisCodeDto checkup = new DiagnosisCodeDto("Z00.00", TestData.FAKER.disease().anyDisease(), null);
 
     @Test
     void listReturnsAllCodes() {

@@ -78,15 +78,7 @@
             <artifactId>quarkus-smallrye-openapi</artifactId>
         </dependency>
 
-        <!-- 3. TOOLS & UTILS -->
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.38</version>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- 4. TESTING -->
+        <!-- 3. TESTING -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit</artifactId>
@@ -98,9 +90,10 @@
             <artifactId>quarkus-junit-mockito</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- @RunOnVertxContext and UniAsserter, for tests that call the reactive repositories -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-test-hibernate-reactive-panache</artifactId>
+            <artifactId>quarkus-test-vertx</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -136,12 +129,6 @@
                         <path>
                             <groupId>io.quarkus</groupId>
                             <artifactId>quarkus-data-processor</artifactId>
-                        </path>
-                        <!-- Listing processors disables classpath discovery, so Lombok must be listed too -->
-                        <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                            <version>1.18.38</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

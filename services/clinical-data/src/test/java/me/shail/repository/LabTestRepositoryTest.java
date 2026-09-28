@@ -38,9 +38,9 @@ class LabTestRepositoryTest {
     @BeforeEach
     void seed() {
         db.reset();
-        alpha = "A " + TestData.FAKER.medical().symptoms();
-        bravo = "B " + TestData.FAKER.medical().symptoms();
-        charlie = "C " + TestData.FAKER.medical().symptoms();
+        alpha = "A " + TestData.FAKER.observation().symptom();
+        bravo = "B " + TestData.FAKER.observation().symptom();
+        charlie = "C " + TestData.FAKER.observation().symptom();
         db.insertLabTest(charlie);
         bravoId = db.insertLabTest(bravo);
         db.insertLabTest(alpha);

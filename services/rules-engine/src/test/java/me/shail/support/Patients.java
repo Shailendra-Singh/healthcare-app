@@ -9,12 +9,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import me.shail.rules.PatientFacts;
-import net.datafaker.Faker;
+import net.datafaker.providers.healthcare.HealthcareFaker;
+import net.datafaker.service.RandomService;
 
 /** Builds {@link PatientFacts} for rule tests; a fake patient id and name-free facts by default. */
 public final class Patients {
 
-    public static final Faker FAKER = new Faker(Locale.US, new Random(20260928L));
+    public static final HealthcareFaker FAKER = new HealthcareFaker(Locale.US, new RandomService(new Random(20260928L)));
 
     private final String sourcePatientId = "P" + FAKER.number().digits(8);
     private LocalDate dateOfBirth;
