@@ -15,4 +15,10 @@ public interface PatientDiagnosisRepository extends RecordRepository.Reactive.Cu
     @Query("from PatientDiagnosis pd join fetch pd.patient p join fetch pd.diagnosisCode d"
             + " left join fetch d.conditionGroup where p.id = :patientId order by pd.diagnosedDate desc")
     Uni<List<PatientDiagnosis>> findByPatient(Long patientId);
+
+    /** Rows of [patient id, ICD code, condition group prefix or null, chronic or null, diagnosed date]. */
+    @Query("select pd.patient.id, d.icdCode, g.icdPrefix, g.chronic, pd.diagnosedDate"
+            + " from PatientDiagnosis pd join pd.diagnosisCode d left join d.conditionGroup g"
+            + " where pd.patient.id in :patientIds")
+    Uni<List<Object[]>> findFactsByPatients(List<Long> patientIds);
 }

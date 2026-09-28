@@ -1,12 +1,12 @@
-# Local stack for the clinical-data service: PostgreSQL 18, the Quarkus app and the CSV ETL.
+# Local stack: PostgreSQL 18, clinical-data (API + CSV ETL) and the rules-engine.
 #
-# Build the app first (the image copies target/quarkus-app), then start everything:
+# Build both apps first (the images copy target/quarkus-app), then start everything:
 #
-#   ./mvnw package -DskipTests
+#   ./mvnw package -DskipTests && (cd ../rules-engine && ./mvnw package -DskipTests)
 #   docker compose up --build        # or: podman compose up --build
 #
-# POSTGRES_USER, POSTGRES_PASSWORD and DB_NAME come from .env next to this file,
-# which Compose reads automatically for ${...} substitution.
+# POSTGRES_USER, POSTGRES_PASSWORD, DB_NAME, RULES_DB_USER and RULES_DB_PASSWORD come from .env next to
+# this file, which Compose reads automatically for ${...} substitution.
 
 name: clinical-data
 
@@ -71,6 +71,56 @@ services:
       postgres:
         condition: service_healthy
       # The app's Flyway migrations create the tables; the ETL waits for them if needed
+      clinical-data:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - clinical-data-network
+
+  # Creates the rules-engine's rules_engine database and login, then exits (safe on every start)
+  rules-engine-db:
+    image: docker.io/library/postgres:18
+    entrypoint: ["sh", "/init/create-rules-engine-db.sh"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      RULES_DB_USER: ${RULES_DB_USER:?set RULES_DB_USER in .env}
+      RULES_DB_PASSWORD: ${RULES_DB_PASSWORD:?set RULES_DB_PASSWORD in .env}
+      RULES_DB_NAME: ${RULES_DB_NAME:-rules_engine}
+    volumes:
+      - ../rules-engine/db/init:/init:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - clinical-data-network
+
+  # Evaluates every patient against the care programs daily; results in rules_engine
+  rules-engine:
+    build:
+      context: ../rules-engine
+      dockerfile: src/main/docker/Dockerfile.jvm
+    image: rules-engine:latest
+    environment:
+      RULES_DB_USER: ${RULES_DB_USER}
+      RULES_DB_PASSWORD: ${RULES_DB_PASSWORD}
+      RULES_DB_NAME: ${RULES_DB_NAME:-rules_engine}
+      DB_HOST: postgres
+      DB_HOST_PORT: "5432"
+      CLINICAL_DATA_URL: http://clinical-data:8080
+      CARE_PROGRAMS_DIR: /care-programs
+      EVALUATION_CRON: ${EVALUATION_CRON:-0 0 6 * * ?}
+      # "Today" for ages, lab windows and due dates follows this time zone
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ../../care-programs:/care-programs:ro
+    ports:
+      - "8081:8080"
+    depends_on:
+      rules-engine-db:
+        condition: service_completed_successfully
       clinical-data:
         condition: service_started
     restart: unless-stopped

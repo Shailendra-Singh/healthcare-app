@@ -18,4 +18,8 @@ public interface PatientRepository extends RecordRepository.Reactive.CustomId<Pa
 
     @Query("from Patient p left join fetch p.language left join fetch p.pcpProvider order by p.id")
     Uni<List<Patient>> findPage(PageRequest pageRequest);
+
+    /** Patients ordered by id, without lookups; one page of the rules-engine's evaluation input. */
+    @Query("from Patient order by id")
+    Uni<List<Patient>> findPageForEvaluation(PageRequest pageRequest);
 }
