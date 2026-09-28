@@ -1,5 +1,11 @@
 *
+# Dockerfile.jvm and friends: the jar built by ./mvnw package
 !target/*-runner
 !target/*-runner.jar
 !target/lib/*
 !target/quarkus-app/*
+# Dockerfile.build: the sources, built inside the image
+!pom.xml
+!mvnw
+!.mvn
+!src

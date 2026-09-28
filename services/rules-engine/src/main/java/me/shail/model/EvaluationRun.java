@@ -18,7 +18,8 @@ import java.time.OffsetDateTime;
 @Table(schema = "eval", name = "evaluation_run")
 public class EvaluationRun {
 
-    public enum Trigger { SCHEDULED, STARTUP, MANUAL }
+    /** DATA_CHANGED: clinical-data finished a new successful ETL load */
+    public enum Trigger { SCHEDULED, STARTUP, MANUAL, DATA_CHANGED }
 
     public enum Status { RUNNING, SUCCEEDED, FAILED }
 
@@ -39,7 +40,7 @@ public class EvaluationRun {
     @Column(nullable = false, length = 20)
     public Status status;
 
-    /** clinical-data's latest ETL run when this run started; null if it has none */
+    /** clinical-data's latest successful ETL run when this run started; null if it had none */
     @Column(name = "source_etl_run_id")
     public Long sourceEtlRunId;
 

@@ -33,12 +33,13 @@ public class TaskResource {
     @GET
     @Operation(summary = "Task work list",
             description = "Most urgent first (due date, then high priority). `status` is ACTIVE (OPEN and IN_PROGRESS, the "
-                    + "default), ALL, or one status; the other filters are optional. `page` starts at 1.")
+                    + "default), ALL, or one status; `taskType` can be repeated (`taskType=SCHEDULING&taskType=REFERRAL`); "
+                    + "the other filters are optional. `page` starts at 1.")
     public List<TaskDto> list(
             @RestQuery @DefaultValue("ACTIVE")
             @Pattern(regexp = "ACTIVE|ALL|OPEN|IN_PROGRESS|COMPLETED|CANCELLED|RESOLVED",
                     message = "must be ACTIVE, ALL, OPEN, IN_PROGRESS, COMPLETED, CANCELLED or RESOLVED") String status,
-            @RestQuery String taskType,
+            @RestQuery List<String> taskType,
             @RestQuery String programId,
             @RestQuery String specialty,
             @RestQuery String assignee,

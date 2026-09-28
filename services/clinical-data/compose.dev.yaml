@@ -1,0 +1,15 @@
+# Local development only: publishes this stack's ports on your machine, for dev mode (./mvnw quarkus:dev
+# against the container database), psql, and calling the API directly without the api-gateway.
+#
+#   podman compose -f compose.yaml -f compose.dev.yaml up -d            # the whole stack
+#   podman compose -f compose.yaml -f compose.dev.yaml up -d postgres           # just the database
+#
+# Without this file, the API is reachable only through the api-gateway and the database only from this stack.
+
+services:
+  postgres:
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+  clinical-data:
+    ports:
+      - "8081:8080"   # clinical-data at localhost:8081

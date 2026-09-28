@@ -29,6 +29,8 @@ replay_pid*
 # Environment files with secrets, in any folder
 .env
 .env.*
+# ...except the template
+!.env.example
 
 # ETL input files (may contain patient data). The folder itself is kept via data/.gitkeep
 /data/*

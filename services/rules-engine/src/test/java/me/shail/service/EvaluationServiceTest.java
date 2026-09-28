@@ -87,7 +87,7 @@ class EvaluationServiceTest {
         minor = Inputs.aged(12, AS_OF).build();
 
         when(catalog.load()).thenReturn(Inputs.repoPrograms());
-        when(clinicalData.latestEtlRun()).thenReturn(new EtlRun(7L, "SUCCEEDED"));
+        when(clinicalData.latestEtlRun("SUCCEEDED")).thenReturn(new EtlRun(7L, "SUCCEEDED"));
         when(clinicalData.evaluationInputs(1, 2, AS_OF)).thenReturn(List.of(seniorDiabetic, adult));
         when(clinicalData.evaluationInputs(2, 2, AS_OF)).thenReturn(List.of(minor));
     }
@@ -250,8 +250,17 @@ class EvaluationServiceTest {
     }
 
     @Test
+    void aDataChangedRunIsRecordedWithItsTrigger() {
+        EvaluationRun run = evaluationService.run(EvaluationRun.Trigger.DATA_CHANGED);
+
+        assertEquals(EvaluationRun.Status.SUCCEEDED, run.status, run.errorMessage);
+        assertEquals(EvaluationRun.Trigger.DATA_CHANGED, results.latestRun().orElseThrow().trigger());
+        assertEquals(7L, results.latestRun().orElseThrow().sourceEtlRunId());
+    }
+
+    @Test
     void theSourceEtlRunIsEmptyBeforeClinicalDataHasLoadedAnything() {
-        when(clinicalData.latestEtlRun()).thenThrow(new WebApplicationException(404));
+        when(clinicalData.latestEtlRun("SUCCEEDED")).thenThrow(new WebApplicationException(404));
 
         EvaluationRun run = evaluationService.run(EvaluationRun.Trigger.MANUAL);
 

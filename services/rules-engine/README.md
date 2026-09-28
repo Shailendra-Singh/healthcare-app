@@ -3,8 +3,9 @@
 Evaluates every patient in clinical-data against the care programs in `care-programs/` (repo root) and
 stores each patient's programs, tier and care needs in its own `rules_engine` database.
 
-- **Runs** daily (`EVALUATION_CRON`, default 06:00), on startup when today has no successful run yet,
-  and on demand with `POST /api/v1/evaluations`.
+- **Runs** daily (`EVALUATION_CRON`, default 06:00), after each new successful ETL load in clinical-data
+  (checked every `ETL_CHECK_EVERY`, default 1 minute), on startup when today has no successful run yet, and on
+  demand with `POST /api/v1/evaluations`.
 - **Rules** are re-read from `care-programs/` at the start of every run: edit, add or remove a YAML file
   and the next run uses it, no redeploy. A file that fails validation is reported and its last good
   version is used. See `care-programs/README.md` for the rule syntax.
@@ -38,7 +39,11 @@ networks: `clinical-data-api-network` to call clinical-data (so start that stack
 podman compose up -d --build        # or: docker compose up -d --build
 ```
 
-| | From your machine | Inside the networks |
+By default nothing is published on your machine: the API is reached through the api-gateway
+(`http://localhost:8080/rules-engine/api/v1/...`, with a Keycloak login). For local development, add
+`compose.dev.yaml`, which publishes the ports below: `podman compose -f compose.yaml -f compose.dev.yaml up -d`.
+
+| | With compose.dev.yaml | Inside the networks |
 |---|---|---|
 | rules-engine | `localhost:8082` | `rules-engine:8080` (rules-engine-api-network) |
 | rules-engine-db | `localhost:5433` | `rules-engine-db:5432` (rules-engine-network only) |
@@ -53,13 +58,15 @@ podman compose up -d --build        # or: docker compose up -d --build
 | `DB_HOST_PORT` | No (5433) | Host port of the rules-engine database |
 | `RULES_DB_NAME` | No (`rules_engine`) | Database name |
 | `EVALUATION_CRON` | No (`0 0 6 * * ?`) | Daily run time (Quartz cron) |
+| `ETL_CHECK_EVERY` | No (`1m`) | How often to check clinical-data for a new ETL load to re-evaluate after |
 | `TZ` | No (UTC) | Time zone that decides "today" in the container |
 
 The login and database are created only when `.data/` is empty; to change them later, remove `.data/`
 (`podman unshare rm -rf .data` under rootless Podman), which deletes the stored results.
 
-Locally in dev mode (port 8082, calling clinical-data at `localhost:8081`), start just the database with
-`podman compose up -d rules-engine-db`, then:
+Locally in dev mode (port 8082, calling clinical-data at `localhost:8081`, so start clinical-data with its
+`compose.dev.yaml` too), start just the database with
+`podman compose -f compose.yaml -f compose.dev.yaml up -d rules-engine-db`, then:
 
 ```sh
 ./mvnw quarkus:dev

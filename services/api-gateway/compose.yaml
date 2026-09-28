@@ -1,0 +1,52 @@
+# api-gateway stack: the public entry point. Checks Keycloak roles and routes /{service}/api/** to clinical-data,
+# rules-engine and task-generation over their API networks; serves one Swagger UI for all of them. No database.
+#
+# Start keycloak, clinical-data, rules-engine and task-generation first (they create the networks joined here).
+# Build the app first (the image copies target/quarkus-app), then start:
+#
+#   ./mvnw package -DskipTests
+#   docker compose up --build        # or: podman compose up --build
+#
+# GATEWAY_CLIENT_SECRET comes from .env next to this file (the same value as in services/keycloak/.env).
+
+name: api-gateway
+
+services:
+  api-gateway:
+    build:
+      context: .
+      dockerfile: src/main/docker/Dockerfile.jvm
+    image: api-gateway:latest
+    environment:
+      GATEWAY_CLIENT_SECRET: ${GATEWAY_CLIENT_SECRET:?set GATEWAY_CLIENT_SECRET in .env}
+      # Keycloak's back channel inside keycloak-api-network; tokens carry the browser-facing issuer
+      KEYCLOAK_URL: http://keycloak:8080
+      # The realm as browsers reach it, for Swagger UI's login
+      KEYCLOAK_PUBLIC_URL: http://localhost:8180
+      CLINICAL_DATA_URL: http://clinical-data:8080
+      RULES_ENGINE_URL: http://rules-engine:8080
+      TASK_GENERATION_URL: http://task-generation:8080
+      TZ: ${TZ:-UTC}
+    ports:
+      - "8080:8080"   # api-gateway at localhost:8080; Swagger UI at /q/swagger-ui
+    restart: unless-stopped
+    networks:
+      - keycloak-api-network
+      - clinical-data-api-network
+      - rules-engine-api-network
+      - task-generation-api-network
+
+networks:
+  # All created by the other stacks
+  keycloak-api-network:
+    name: keycloak-api-network
+    external: true
+  clinical-data-api-network:
+    name: clinical-data-api-network
+    external: true
+  rules-engine-api-network:
+    name: rules-engine-api-network
+    external: true
+  task-generation-api-network:
+    name: task-generation-api-network
+    external: true

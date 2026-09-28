@@ -47,6 +47,15 @@ class LoadRunResourceTest {
     }
 
     @Test
+    void latestSucceededUsesTheStatusFilter() {
+        when(loadRunService.findLatest("SUCCEEDED")).thenReturn(Uni.createFrom().item(
+                new LoadRunDto(4L, "SUCCEEDED", null, null, null, 0, List.of())));
+
+        given().queryParam("status", "SUCCEEDED").when().get(PATH).then().statusCode(200).body("runId", is(4));
+        given().queryParam("status", "FAILED").when().get(PATH).then().statusCode(400);
+    }
+
+    @Test
     void latestReturns404BeforeTheFirstRun() {
         when(loadRunService.findLatest()).thenReturn(Uni.createFrom().nullItem());
 

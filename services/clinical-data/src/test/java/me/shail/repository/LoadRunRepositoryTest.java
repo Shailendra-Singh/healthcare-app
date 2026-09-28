@@ -68,6 +68,17 @@ class LoadRunRepositoryTest {
 
     @Test
     @RunOnVertxContext
+    void findLatestByStatusSkipsNewerRunsWithOtherStatuses(UniAsserter asserter) {
+        long succeeded = seedRun("SUCCEEDED", null);
+        seedRun("FAILED", "BadCopyFileFormat: column name mismatch");
+        seedRun("STARTED", null);
+
+        asserter.assertThat(() -> sessions.read(() -> loadRunRepository.findLatestByStatus("SUCCEEDED")),
+                run -> assertEquals(succeeded, run.id));
+    }
+
+    @Test
+    @RunOnVertxContext
     void findByRunReturnsThatRunsFilesSortedByName(UniAsserter asserter) {
         long other = seedRun("SUCCEEDED", null);
         seedFile(other, "labs.csv", TestData.FAKER.hashing().sha256(), 5);

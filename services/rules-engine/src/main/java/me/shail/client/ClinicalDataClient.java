@@ -17,8 +17,12 @@ public interface ClinicalDataClient {
     @Path("/evaluation-inputs")
     List<EvaluationInput> evaluationInputs(@RestQuery long page, @RestQuery int size, @RestQuery LocalDate asOf);
 
-    /** @throws jakarta.ws.rs.WebApplicationException with status 404 before the ETL's first run */
+    /**
+     * The latest ETL run with {@code status} (SUCCEEDED).
+     *
+     * @throws jakarta.ws.rs.WebApplicationException with status 404 before the ETL's first successful run
+     */
     @GET
     @Path("/etl-runs/latest")
-    EtlRun latestEtlRun();
+    EtlRun latestEtlRun(@RestQuery String status);
 }

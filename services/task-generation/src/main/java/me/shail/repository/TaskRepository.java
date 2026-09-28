@@ -63,15 +63,15 @@ public interface TaskRepository {
     }
 
     /** Tasks matching whichever optional filters are given, most urgent first; {@code page} starts at 1. */
-    default List<Task> search(List<Task.Status> statuses, String taskType, String programId, String specialty,
+    default List<Task> search(List<Task.Status> statuses, List<String> taskTypes, String programId, String specialty,
             String assignee, int page, int size) {
         StringBuilder hql = new StringBuilder("from Task where status in :statuses");
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("statuses", statuses);
         List<String> clauses = new ArrayList<>();
-        if (taskType != null) {
-            clauses.add("taskType = :taskType");
-            params.put("taskType", taskType);
+        if (taskTypes != null && !taskTypes.isEmpty()) {
+            clauses.add("taskType in :taskTypes");
+            params.put("taskTypes", taskTypes);
         }
         if (programId != null) {
             clauses.add("programId = :programId");
