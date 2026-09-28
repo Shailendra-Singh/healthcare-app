@@ -52,6 +52,8 @@ services:
       CLINICAL_USER_PASSWORD: ${CLINICAL_USER_PASSWORD:?set CLINICAL_USER_PASSWORD in .env}
     volumes:
       - ./realm:/opt/keycloak/data/import:ro
+      # The Care Tasks login theme (the realm's loginTheme)
+      - ./themes/care-tasks:/opt/keycloak/themes/care-tasks:ro
     ports:
       - "8180:8080"   # Keycloak at localhost:8180 (login pages, admin console)
     healthcheck:

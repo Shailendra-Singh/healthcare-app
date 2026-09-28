@@ -218,6 +218,8 @@ services:
     volumes:
       # Imported on the first start only
       - ./services/keycloak/realm:/opt/keycloak/data/import:ro
+      # The Care Tasks login theme (the realm's loginTheme)
+      - ./services/keycloak/themes/care-tasks:/opt/keycloak/themes/care-tasks:ro
     ports:
       - "8180:8080"   # Keycloak at localhost:8180
     healthcheck:

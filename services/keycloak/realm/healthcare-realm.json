@@ -1,6 +1,7 @@
 {
   "realm": "healthcare",
-  "displayName": "Healthcare",
+  "displayName": "Care Tasks",
+  "loginTheme": "care-tasks",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": false,
