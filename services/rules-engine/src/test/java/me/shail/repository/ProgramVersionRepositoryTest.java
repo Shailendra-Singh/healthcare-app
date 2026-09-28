@@ -50,7 +50,7 @@ class ProgramVersionRepositoryTest {
         return QuarkusTransaction.requiringNew().call(() -> {
             ProgramVersion version = new ProgramVersion();
             version.programId = programId;
-            version.name = Patients.FAKER.medical().diseaseName();
+            version.name = Patients.FAKER.disease().anyDisease();
             version.sourceFile = sourceFile;
             version.checksum = Patients.FAKER.hashing().sha256();
             version.definition = "id: " + programId;

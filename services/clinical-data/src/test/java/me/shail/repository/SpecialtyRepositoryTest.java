@@ -38,9 +38,9 @@ class SpecialtyRepositoryTest {
     @BeforeEach
     void seed() {
         db.reset();
-        alpha = "A " + TestData.FAKER.medical().medicineName();
-        bravo = "B " + TestData.FAKER.medical().medicineName();
-        charlie = "C " + TestData.FAKER.medical().medicineName();
+        alpha = "A " + TestData.FAKER.medication().drugName();
+        bravo = "B " + TestData.FAKER.medication().drugName();
+        charlie = "C " + TestData.FAKER.medication().drugName();
         db.insertSpecialty(charlie);
         bravoId = db.insertSpecialty(bravo);
         db.insertSpecialty(alpha);

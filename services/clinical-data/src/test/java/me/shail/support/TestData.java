@@ -17,7 +17,8 @@ import me.shail.model.Patient;
 import me.shail.model.PatientDiagnosis;
 import me.shail.model.Provider;
 import me.shail.model.Specialty;
-import net.datafaker.Faker;
+import net.datafaker.providers.healthcare.HealthcareFaker;
+import net.datafaker.service.RandomService;
 
 /**
  * Builds unsaved entities filled with realistic fake data, for DTO and service tests.
@@ -25,7 +26,7 @@ import net.datafaker.Faker;
  */
 public final class TestData {
 
-    public static final Faker FAKER = new Faker(Locale.US, new Random(20260927L));
+    public static final HealthcareFaker FAKER = new HealthcareFaker(Locale.US, new RandomService(new Random(20260927L)));
 
     private TestData() {
     }
@@ -71,7 +72,7 @@ public final class TestData {
     public static DiagnosisCode diagnosisCode(ConditionGroup group) {
         DiagnosisCode code = new DiagnosisCode();
         code.icdCode = group == null ? "Z00.00" : group.icdPrefix + "." + FAKER.number().numberBetween(10, 99);
-        code.description = FAKER.medical().diseaseName();
+        code.description = FAKER.disease().anyDisease();
         code.conditionGroup = group;
         return code;
     }

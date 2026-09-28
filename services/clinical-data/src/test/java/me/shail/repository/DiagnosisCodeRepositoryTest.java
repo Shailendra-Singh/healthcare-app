@@ -33,10 +33,10 @@ class DiagnosisCodeRepositoryTest {
     @BeforeEach
     void seed() {
         db.reset();
-        diabetesDescription = TestData.FAKER.medical().diseaseName();
-        db.insertDiagnosisCode("I10", TestData.FAKER.medical().diseaseName(), "I10");
+        diabetesDescription = TestData.FAKER.disease().anyDisease();
+        db.insertDiagnosisCode("I10", TestData.FAKER.disease().anyDisease(), "I10");
         db.insertDiagnosisCode("E11.65", diabetesDescription, "E11");
-        db.insertDiagnosisCode("Z00.00", TestData.FAKER.medical().diseaseName(), null);
+        db.insertDiagnosisCode("Z00.00", TestData.FAKER.disease().anyDisease(), null);
     }
 
     @Test

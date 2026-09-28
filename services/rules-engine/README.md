@@ -14,7 +14,7 @@ stores each patient's programs, tier and care needs in its own `rules_engine` da
 
 ## API
 
-Swagger UI: http://localhost:8081/q/swagger-ui
+Swagger UI: http://localhost:8082/q/swagger-ui
 
 | Endpoint | Returns |
 |---|---|
@@ -27,19 +27,38 @@ Swagger UI: http://localhost:8081/q/swagger-ui
 
 ## Running
 
-With the whole stack (from `services/clinical-data`):
+rules-engine has its own stack (`compose.yaml` here): the app and a dedicated PostgreSQL
+(`rules-engine-db`, data in `.data/`) on `rules-engine-network`. The app also joins
+`clinical-data-network` to call the clinical-data API, so start the clinical-data stack first:
 
 ```sh
-./mvnw package -DskipTests && (cd ../rules-engine && ./mvnw package -DskipTests)
-podman compose up --build
+(cd ../clinical-data && ./mvnw package -DskipTests && podman compose up -d --build)
+./mvnw package -DskipTests
+podman compose up -d --build        # or: docker compose up -d --build
 ```
 
-Needs `RULES_DB_USER` and `RULES_DB_PASSWORD` in `services/clinical-data/.env`; compose creates the
-`rules_engine` database and that login on start.
+| | From your machine | Inside the networks |
+|---|---|---|
+| rules-engine | `localhost:8082` | `rules-engine:8080` |
+| rules-engine-db | `localhost:5433` | `rules-engine-db:5432` (rules-engine-network only) |
+| clinical-data API | `localhost:8081` | `clinical-data:8080` (clinical-data-network) |
 
-Locally in dev mode (port 8081), with the stack's PostgreSQL and clinical-data running, create
-`services/rules-engine/.env` with `RULES_DB_USER`, `RULES_DB_PASSWORD`, `DB_HOST=localhost` and
-`DB_HOST_PORT`, then:
+`.env` next to this file:
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `RULES_DB_USER`, `RULES_DB_PASSWORD` | Yes | Login of the rules-engine database, created on first start |
+| `DB_HOST` | Dev mode | `localhost` when running `./mvnw quarkus:dev`; compose uses `rules-engine-db` |
+| `DB_HOST_PORT` | No (5433) | Host port of the rules-engine database |
+| `RULES_DB_NAME` | No (`rules_engine`) | Database name |
+| `EVALUATION_CRON` | No (`0 0 6 * * ?`) | Daily run time (Quartz cron) |
+| `TZ` | No (UTC) | Time zone that decides "today" in the container |
+
+The login and database are created only when `.data/` is empty; to change them later, remove `.data/`
+(`podman unshare rm -rf .data` under rootless Podman), which deletes the stored results.
+
+Locally in dev mode (port 8082, calling clinical-data at `localhost:8081`), start just the database with
+`podman compose up -d rules-engine-db`, then:
 
 ```sh
 ./mvnw quarkus:dev

@@ -35,8 +35,8 @@ class PatientDiagnosisRepositoryTest {
     @BeforeEach
     void seed() {
         db.reset();
-        db.insertDiagnosisCode("E11.65", TestData.FAKER.medical().diseaseName(), "E11");
-        db.insertDiagnosisCode("I10", TestData.FAKER.medical().diseaseName(), "I10");
+        db.insertDiagnosisCode("E11.65", TestData.FAKER.disease().anyDisease(), "E11");
+        db.insertDiagnosisCode("I10", TestData.FAKER.disease().anyDisease(), "I10");
         patientId = db.insertPatient();
         long otherPatientId = db.insertPatient();
         olderId = db.insertPatientDiagnosis(patientId, "I10", LocalDate.of(2019, 5, 5));
