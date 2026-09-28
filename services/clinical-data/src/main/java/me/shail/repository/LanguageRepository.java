@@ -1,34 +1,20 @@
 package me.shail.repository;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.data.hibernate.RecordRepository;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.data.repository.Find;
+import jakarta.data.repository.OrderBy;
+import jakarta.data.repository.Query;
 import java.util.List;
-import me.shail.dto.LanguageDto;
-import me.shail.repository.stateless.LanguageQueryRepository;
+import me.shail.model.Language;
 
-@ApplicationScoped
-@WithSession(stateless = true)
-public class LanguageRepository {
+public interface LanguageRepository extends RecordRepository.Reactive.CustomId<Language, Short> {
 
-    @Inject
-    LanguageQueryRepository languageQueryRepository;
+    @Find
+    @OrderBy("name")
+    Uni<List<Language>> findAllOrderedByName();
 
-    public Uni<LanguageDto> findById(Short id) {
-        return languageQueryRepository.findById(id).map(LanguageDto::from);
-    }
-
-    public Uni<List<LanguageDto>> findAll() {
-        return languageQueryRepository.findAllOrderedByName()
-                .map(list -> list.stream().map(LanguageDto::from).toList());
-    }
-
-    /** Case-insensitive; null when there is no match. */
-    public Uni<LanguageDto> findByName(String name) {
-        return languageQueryRepository.findByName(name)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(LanguageDto::from);
-    }
+    /** Case-insensitive, matching how the ETL de-duplicates names. */
+    @Query("where lower(name) = lower(:name)")
+    Uni<Language> findByName(String name);
 }

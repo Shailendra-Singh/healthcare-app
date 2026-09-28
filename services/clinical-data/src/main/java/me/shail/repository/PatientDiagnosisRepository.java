@@ -1,31 +1,18 @@
 package me.shail.repository;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.data.hibernate.RecordRepository;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.data.repository.Query;
 import java.util.List;
-import me.shail.dto.PatientDiagnosisDto;
-import me.shail.repository.stateless.PatientDiagnosisQueryRepository;
+import me.shail.model.PatientDiagnosis;
 
-@ApplicationScoped
-@WithSession(stateless = true)
-public class PatientDiagnosisRepository {
+public interface PatientDiagnosisRepository extends RecordRepository.Reactive.CustomId<PatientDiagnosis, Long> {
 
-    @Inject
-    PatientDiagnosisQueryRepository patientDiagnosisQueryRepository;
+    @Query("from PatientDiagnosis pd join fetch pd.patient join fetch pd.diagnosisCode d"
+            + " left join fetch d.conditionGroup where pd.id = :id")
+    Uni<PatientDiagnosis> findWithDetails(Long id);
 
-    /** Null when there is no match. */
-    public Uni<PatientDiagnosisDto> findById(Long id) {
-        return patientDiagnosisQueryRepository.findWithDetails(id)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(PatientDiagnosisDto::from);
-    }
-
-    /** Newest diagnosis first. */
-    public Uni<List<PatientDiagnosisDto>> findByPatient(Long patientId) {
-        return patientDiagnosisQueryRepository.findByPatient(patientId)
-                .map(list -> list.stream().map(PatientDiagnosisDto::from).toList());
-    }
+    @Query("from PatientDiagnosis pd join fetch pd.patient p join fetch pd.diagnosisCode d"
+            + " left join fetch d.conditionGroup where p.id = :patientId order by pd.diagnosedDate desc")
+    Uni<List<PatientDiagnosis>> findByPatient(Long patientId);
 }

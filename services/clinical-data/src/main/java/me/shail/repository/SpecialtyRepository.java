@@ -1,34 +1,20 @@
 package me.shail.repository;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.data.hibernate.RecordRepository;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.data.repository.Find;
+import jakarta.data.repository.OrderBy;
+import jakarta.data.repository.Query;
 import java.util.List;
-import me.shail.dto.SpecialtyDto;
-import me.shail.repository.stateless.SpecialtyQueryRepository;
+import me.shail.model.Specialty;
 
-@ApplicationScoped
-@WithSession(stateless = true)
-public class SpecialtyRepository {
+public interface SpecialtyRepository extends RecordRepository.Reactive.CustomId<Specialty, Short> {
 
-    @Inject
-    SpecialtyQueryRepository specialtyQueryRepository;
+    @Find
+    @OrderBy("name")
+    Uni<List<Specialty>> findAllOrderedByName();
 
-    public Uni<SpecialtyDto> findById(Short id) {
-        return specialtyQueryRepository.findById(id).map(SpecialtyDto::from);
-    }
-
-    public Uni<List<SpecialtyDto>> findAll() {
-        return specialtyQueryRepository.findAllOrderedByName()
-                .map(list -> list.stream().map(SpecialtyDto::from).toList());
-    }
-
-    /** Case-insensitive; null when there is no match. */
-    public Uni<SpecialtyDto> findByName(String name) {
-        return specialtyQueryRepository.findByName(name)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(SpecialtyDto::from);
-    }
+    /** Case-insensitive, matching how the ETL de-duplicates names. */
+    @Query("where lower(name) = lower(:name)")
+    Uni<Specialty> findByName(String name);
 }

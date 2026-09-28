@@ -1,39 +1,21 @@
 package me.shail.repository;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.data.hibernate.RecordRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.data.page.PageRequest;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.data.repository.Query;
 import java.util.List;
-import me.shail.dto.PatientDto;
-import me.shail.repository.stateless.PatientQueryRepository;
+import me.shail.model.Patient;
 
-@ApplicationScoped
-@WithSession(stateless = true)
-public class PatientRepository {
+public interface PatientRepository extends RecordRepository.Reactive.CustomId<Patient, Long> {
 
-    @Inject
-    PatientQueryRepository patientQueryRepository;
+    @Query("from Patient p left join fetch p.language left join fetch p.pcpProvider where p.id = :id")
+    Uni<Patient> findWithDetails(Long id);
 
-    /** Null when there is no match. */
-    public Uni<PatientDto> findById(Long patientId) {
-        return patientQueryRepository.findWithDetails(patientId)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(PatientDto::from);
-    }
+    @Query("from Patient p left join fetch p.language left join fetch p.pcpProvider"
+            + " where p.sourcePatientId = :sourcePatientId")
+    Uni<Patient> findBySourcePatientId(String sourcePatientId);
 
-    /** Looks up by patient_id from patients.csv; null when there is no match. */
-    public Uni<PatientDto> findBySourcePatientId(String sourcePatientId) {
-        return patientQueryRepository.findBySourcePatientId(sourcePatientId)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(PatientDto::from);
-    }
-
-    /** Patients ordered by id; {@code page} starts at 1. */
-    public Uni<List<PatientDto>> findPage(long page, int size) {
-        return patientQueryRepository.findPage(PageRequest.ofPage(page, size, false))
-                .map(list -> list.stream().map(PatientDto::from).toList());
-    }
+    @Query("from Patient p left join fetch p.language left join fetch p.pcpProvider order by p.id")
+    Uni<List<Patient>> findPage(PageRequest pageRequest);
 }

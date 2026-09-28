@@ -1,38 +1,24 @@
 package me.shail.repository;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.data.hibernate.RecordRepository;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.data.repository.Query;
 import java.time.LocalDate;
 import java.util.List;
-import me.shail.dto.EncounterDto;
-import me.shail.repository.stateless.EncounterQueryRepository;
+import me.shail.model.Encounter;
 
-@ApplicationScoped
-@WithSession(stateless = true)
-public class EncounterRepository {
+public interface EncounterRepository extends RecordRepository.Reactive.CustomId<Encounter, Long> {
 
-    @Inject
-    EncounterQueryRepository encounterQueryRepository;
+    @Query("from Encounter e join fetch e.patient join fetch e.specialty left join fetch e.provider"
+            + " where e.id = :id")
+    Uni<Encounter> findWithDetails(Long id);
 
-    /** Null when there is no match. */
-    public Uni<EncounterDto> findById(Long id) {
-        return encounterQueryRepository.findWithDetails(id)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(EncounterDto::from);
-    }
+    @Query("from Encounter e join fetch e.patient p join fetch e.specialty left join fetch e.provider"
+            + " where p.id = :patientId order by e.encounterDate desc")
+    Uni<List<Encounter>> findByPatient(Long patientId);
 
-    /** Past and scheduled encounters, newest first. */
-    public Uni<List<EncounterDto>> findByPatient(Long patientId) {
-        return encounterQueryRepository.findByPatient(patientId)
-                .map(list -> list.stream().map(EncounterDto::from).toList());
-    }
-
-    /** Scheduled appointments from today on, soonest first. */
-    public Uni<List<EncounterDto>> findUpcoming(Long patientId) {
-        return encounterQueryRepository.findUpcomingByPatient(patientId, LocalDate.now())
-                .map(list -> list.stream().map(EncounterDto::from).toList());
-    }
+    /** Scheduled appointments: encounters on or after {@code from}. */
+    @Query("from Encounter e join fetch e.patient p join fetch e.specialty left join fetch e.provider"
+            + " where p.id = :patientId and e.encounterDate >= :from order by e.encounterDate")
+    Uni<List<Encounter>> findUpcomingByPatient(Long patientId, LocalDate from);
 }

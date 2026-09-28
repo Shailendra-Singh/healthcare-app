@@ -1,36 +1,19 @@
 package me.shail.repository;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.data.hibernate.RecordRepository;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.data.repository.Query;
 import java.util.List;
-import me.shail.dto.DiagnosisCodeDto;
-import me.shail.repository.stateless.DiagnosisCodeQueryRepository;
+import me.shail.model.DiagnosisCode;
 
-@ApplicationScoped
-@WithSession(stateless = true)
-public class DiagnosisCodeRepository {
+public interface DiagnosisCodeRepository extends RecordRepository.Reactive.CustomId<DiagnosisCode, String> {
 
-    @Inject
-    DiagnosisCodeQueryRepository diagnosisCodeQueryRepository;
+    @Query("from DiagnosisCode d left join fetch d.conditionGroup where d.icdCode = :icdCode")
+    Uni<DiagnosisCode> findWithGroup(String icdCode);
 
-    /** Null when there is no match. */
-    public Uni<DiagnosisCodeDto> findById(String icdCode) {
-        return diagnosisCodeQueryRepository.findWithGroup(icdCode)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(DiagnosisCodeDto::from);
-    }
+    @Query("from DiagnosisCode d left join fetch d.conditionGroup order by d.icdCode")
+    Uni<List<DiagnosisCode>> findAllWithGroup();
 
-    public Uni<List<DiagnosisCodeDto>> findAll() {
-        return diagnosisCodeQueryRepository.findAllWithGroup()
-                .map(list -> list.stream().map(DiagnosisCodeDto::from).toList());
-    }
-
-    /** Codes in a chronic condition family (E10, E11, I10, ...). */
-    public Uni<List<DiagnosisCodeDto>> findChronic() {
-        return diagnosisCodeQueryRepository.findChronic()
-                .map(list -> list.stream().map(DiagnosisCodeDto::from).toList());
-    }
+    @Query("from DiagnosisCode d join fetch d.conditionGroup g where g.chronic = true order by d.icdCode")
+    Uni<List<DiagnosisCode>> findChronic();
 }

@@ -1,37 +1,22 @@
 package me.shail.repository;
 
-import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.quarkus.data.hibernate.RecordRepository;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.data.repository.Query;
 import java.util.List;
-import me.shail.dto.LabResultDto;
-import me.shail.repository.stateless.LabResultQueryRepository;
+import me.shail.model.LabResult;
 
-@ApplicationScoped
-@WithSession(stateless = true)
-public class LabResultRepository {
+public interface LabResultRepository extends RecordRepository.Reactive.CustomId<LabResult, Long> {
 
-    @Inject
-    LabResultQueryRepository labResultQueryRepository;
+    @Query("from LabResult r join fetch r.patient join fetch r.labTest where r.id = :id")
+    Uni<LabResult> findWithDetails(Long id);
 
-    /** Null when there is no match. */
-    public Uni<LabResultDto> findById(Long id) {
-        return labResultQueryRepository.findWithDetails(id)
-                .onFailure(NoResultException.class).recoverWithNull()
-                .map(LabResultDto::from);
-    }
+    @Query("from LabResult r join fetch r.patient p join fetch r.labTest"
+            + " where p.id = :patientId order by r.resultDate desc")
+    Uni<List<LabResult>> findByPatient(Long patientId);
 
-    /** Newest result first. */
-    public Uni<List<LabResultDto>> findByPatient(Long patientId) {
-        return labResultQueryRepository.findByPatient(patientId)
-                .map(list -> list.stream().map(LabResultDto::from).toList());
-    }
-
-    /** Most recent result of a test (case-insensitive name, e.g. "HbA1c"); null when there is none. */
-    public Uni<LabResultDto> findLatest(Long patientId, String testName) {
-        return labResultQueryRepository.findByPatientAndTest(patientId, testName)
-                .map(list -> list.isEmpty() ? null : LabResultDto.from(list.getFirst()));
-    }
+    /** Newest first, so the first element is the latest result. */
+    @Query("from LabResult r join fetch r.patient p join fetch r.labTest t"
+            + " where p.id = :patientId and lower(t.name) = lower(:testName) order by r.resultDate desc")
+    Uni<List<LabResult>> findByPatientAndTest(Long patientId, String testName);
 }
