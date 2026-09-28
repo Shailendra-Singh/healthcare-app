@@ -28,7 +28,7 @@ public class TestDatabase {
                 TRUNCATE dbo.encounter, dbo.lab_result, dbo.patient_diagnosis, dbo.patient,
                          dbo.diagnosis_code, dbo.language, dbo.specialty, dbo.provider, dbo.lab_test,
                          raw.patients, raw.diagnoses, raw.labs, raw.encounters,
-                         etl.load_reject, etl.load_file, etl.load_run
+                         etl.load_reject, etl.load_file, etl.load_run, etl.heartbeat
                 RESTART IDENTITY CASCADE""");
     }
 

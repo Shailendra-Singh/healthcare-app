@@ -4,6 +4,7 @@
 Every ETL_INTERVAL_SECONDS, looks for patients.csv, diagnoses.csv, labs.csv and encounters.csv in
 DATA_DIR. When all four are present and their SHA-256 checksums differ from the last successful run,
 it truncates and reloads the raw staging tables and calls etl.process_run, which upserts into dbo.
+After every check it overwrites the single etl.heartbeat row with the time, outcome and interval.
 
 Environment:
     POSTGRES_USER, POSTGRES_PASSWORD, DB_HOST, DB_NAME   required
@@ -95,38 +96,38 @@ def sha256(path: Path) -> str:
         return hashlib.file_digest(f, "sha256").hexdigest()
 
 
-def scan(config: Config) -> dict[str, CsvFile] | None:
-    """The four files with their checksums, or None when they are not all present and settled."""
+def scan(config: Config) -> tuple[dict[str, CsvFile] | None, str]:
+    """The four files with their checksums, or None and why when they are not all present and settled."""
     missing = [name for name in FILES if not (config.data_dir / name).is_file()]
     if missing:
-        log.info("Waiting for %s in %s", ", ".join(missing), config.data_dir)
-        return None
+        return None, f"Waiting for {', '.join(missing)} in {config.data_dir}"
 
     now = time.time()
     unsettled = [name for name in FILES
                  if now - (config.data_dir / name).stat().st_mtime < config.settle_seconds]
     if unsettled:
-        log.info("Waiting for %s to finish being written", ", ".join(unsettled))
-        return None
+        return None, f"Waiting for {', '.join(unsettled)} to finish being written"
 
-    return {name: CsvFile(name, config.data_dir / name, sha256(config.data_dir / name),
-                          (config.data_dir / name).stat().st_size)
-            for name in FILES}
+    files = {name: CsvFile(name, config.data_dir / name, sha256(config.data_dir / name),
+                           (config.data_dir / name).stat().st_size)
+             for name in FILES}
+    return files, ""
 
 
 def schema_ready(conn: psycopg.Connection) -> bool:
     row = conn.execute("""
         SELECT to_regclass('etl.load_file') IS NOT NULL
            AND to_regclass('raw.patients') IS NOT NULL
+           AND to_regclass('etl.heartbeat') IS NOT NULL
            AND to_regprocedure('etl.process_run(bigint)') IS NOT NULL""").fetchone()
     return bool(row[0])
 
 
-def last_loaded_checksums(conn: psycopg.Connection) -> dict[str, str]:
-    rows = conn.execute("""
-        SELECT file_name, checksum FROM etl.load_file
-        WHERE run_id = (SELECT max(run_id) FROM etl.load_run WHERE status = 'SUCCEEDED')""").fetchall()
-    return dict(rows)
+def last_loaded_checksums(conn: psycopg.Connection) -> tuple[int | None, dict[str, str]]:
+    """The last SUCCEEDED run and its file checksums."""
+    run_id = conn.execute("SELECT max(run_id) FROM etl.load_run WHERE status = 'SUCCEEDED'").fetchone()[0]
+    rows = conn.execute("SELECT file_name, checksum FROM etl.load_file WHERE run_id = %s", (run_id,)).fetchall()
+    return run_id, dict(rows)
 
 
 def close_abandoned_runs(conn: psycopg.Connection) -> None:
@@ -166,7 +167,8 @@ def copy_into_raw(conn: psycopg.Connection, csv_file: CsvFile, table: str, colum
     return rows
 
 
-def load(conn: psycopg.Connection, files: dict[str, CsvFile]) -> None:
+def load(conn: psycopg.Connection, files: dict[str, CsvFile]) -> tuple[int, int]:
+    """Loads the files as a new run; returns the run id and its rejected row count."""
     run_id = conn.execute("INSERT INTO etl.load_run DEFAULT VALUES RETURNING run_id").fetchone()[0]
     log.info("Run %d: loading %s", run_id, ", ".join(files))
     try:
@@ -189,10 +191,7 @@ def load(conn: psycopg.Connection, files: dict[str, CsvFile]) -> None:
         raise
 
     rejects = conn.execute("SELECT count(*) FROM etl.load_reject WHERE run_id = %s", (run_id,)).fetchone()[0]
-    if rejects:
-        log.warning("Run %d SUCCEEDED with %d rejected rows; see etl.load_reject", run_id, rejects)
-    else:
-        log.info("Run %d SUCCEEDED", run_id)
+    return run_id, rejects
 
 
 def mark_failed(conn: psycopg.Connection, run_id: int, error: Exception) -> None:
@@ -204,12 +203,54 @@ def mark_failed(conn: psycopg.Connection, run_id: int, error: Exception) -> None
         log.exception("Run %d: could not record the failure", run_id)
 
 
-def run_cycle(config: Config) -> str:
-    """One check-and-load pass. Returns what happened, for logging, retry timing and the exit code."""
-    files = scan(config)
-    if files is None:
-        return "waiting"
+def record_heartbeat(conn: psycopg.Connection, config: Config, outcome: str, detail: str) -> None:
+    """Overwrites the single etl.heartbeat row, so the API can show when the ETL last checked."""
+    try:
+        conn.execute("""
+            INSERT INTO etl.heartbeat (heartbeat_id, checked_at, outcome, detail, interval_seconds)
+            VALUES (1, now(), %s, %s, %s)
+            ON CONFLICT (heartbeat_id) DO UPDATE
+            SET checked_at = EXCLUDED.checked_at, outcome = EXCLUDED.outcome,
+                detail = EXCLUDED.detail, interval_seconds = EXCLUDED.interval_seconds""",
+                     (outcome, detail or None, config.interval_seconds))
+    except psycopg.Error as e:
+        log.warning("Could not record the heartbeat: %s", str(e).strip())
 
+
+def check_and_load(conn: psycopg.Connection, config: Config) -> tuple[str, str]:
+    """Returns the outcome (waiting, busy, unchanged, loaded or failed) and a one-line detail."""
+    files, waiting_detail = scan(config)
+    if files is None:
+        log.info("%s", waiting_detail)
+        return "waiting", waiting_detail
+
+    # Held until the connection closes at the end of the cycle
+    if not conn.execute("SELECT pg_try_advisory_lock(%s)", (LOCK_KEY,)).fetchone()[0]:
+        log.warning("Another ETL instance is running; skipping this cycle")
+        return "busy", "Another ETL instance held the lock"
+
+    close_abandoned_runs(conn)
+
+    last_run_id, last_checksums = last_loaded_checksums(conn)
+    if last_checksums == {name: f.checksum for name, f in files.items()}:
+        log.info("Files unchanged since run %d; nothing to load", last_run_id)
+        return "unchanged", f"Files unchanged since run {last_run_id}"
+
+    try:
+        run_id, rejects = load(conn, files)
+    except Exception as e:
+        log.exception("Load failed")
+        return "failed", f"Load failed: {type(e).__name__}: {e}"[:1000]
+
+    if rejects:
+        log.warning("Run %d SUCCEEDED with %d rejected rows; see etl.load_reject", run_id, rejects)
+    else:
+        log.info("Run %d SUCCEEDED", run_id)
+    return "loaded", f"Run {run_id} SUCCEEDED with {rejects} rejected rows"
+
+
+def run_cycle(config: Config) -> str:
+    """One check-and-load pass. Returns the outcome, for logging, retry timing and the exit code."""
     with psycopg.connect(config.conninfo, autocommit=True) as conn:
         conn.add_notice_handler(lambda notice: log.info("db: %s", notice.message_primary))
 
@@ -217,23 +258,9 @@ def run_cycle(config: Config) -> str:
             log.info("Schema not created yet (the clinical-data app runs the Flyway migrations)")
             return "not_ready"
 
-        # Held until the connection closes at the end of this block
-        if not conn.execute("SELECT pg_try_advisory_lock(%s)", (LOCK_KEY,)).fetchone()[0]:
-            log.warning("Another ETL instance is running; skipping this cycle")
-            return "busy"
-
-        close_abandoned_runs(conn)
-
-        if last_loaded_checksums(conn) == {name: f.checksum for name, f in files.items()}:
-            log.info("Files unchanged since the last successful run; nothing to load")
-            return "unchanged"
-
-        try:
-            load(conn, files)
-        except Exception:
-            log.exception("Load failed")
-            return "failed"
-        return "loaded"
+        outcome, detail = check_and_load(conn, config)
+        record_heartbeat(conn, config, outcome, detail)
+        return outcome
 
 
 def main(argv: list[str]) -> int:
