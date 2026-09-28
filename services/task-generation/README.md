@@ -51,8 +51,8 @@ development, add `compose.dev.yaml`: `podman compose -f compose.yaml -f compose.
 
 | | With compose.dev.yaml | Inside the networks |
 |---|---|---|
-| task-generation | `localhost:8083` | `task-generation:8080` (task-generation-api-network) |
-| task-generation-db | `localhost:5434` | `task-generation-db:5432` (task-generation-network only) |
+| task-generation | `localhost:8083` (`TASK_GENERATION_PORT`) | `task-generation:8080` (task-generation-api-network) |
+| task-generation-db | `localhost:5434` (`DB_HOST_PORT`) | `task-generation-db:5432` (task-generation-network only) |
 | rules-engine API | `localhost:8082` | `rules-engine:8080` (rules-engine-api-network) |
 
 `.env` next to this file:

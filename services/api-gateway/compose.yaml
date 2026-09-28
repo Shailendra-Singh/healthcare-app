@@ -22,14 +22,14 @@ services:
       # Keycloak's back channel inside keycloak-api-network; tokens carry the browser-facing issuer
       KEYCLOAK_URL: http://keycloak:8080
       # The realm as browsers reach it, for Swagger UI's login
-      KEYCLOAK_PUBLIC_URL: http://localhost:8180
+      KEYCLOAK_PUBLIC_URL: http://localhost:${KEYCLOAK_PORT:-8180}
       CLINICAL_DATA_URL: http://clinical-data:8080
       RULES_ENGINE_URL: http://rules-engine:8080
       TASK_GENERATION_URL: http://task-generation:8080
       ETL_URL: http://etl:8080
       TZ: ${TZ:-UTC}
     ports:
-      - "8080:8080"   # api-gateway at localhost:8080; Swagger UI at /q/swagger-ui
+      - "${GATEWAY_PORT:-8080}:8080"   # api-gateway at localhost:8080; Swagger UI at /q/swagger-ui
     restart: unless-stopped
     networks:
       - keycloak-api-network

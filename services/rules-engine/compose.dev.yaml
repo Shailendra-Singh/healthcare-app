@@ -12,4 +12,4 @@ services:
       - "${DB_HOST_PORT:-5433}:5432"
   rules-engine:
     ports:
-      - "8082:8080"   # rules-engine at localhost:8082
+      - "${RULES_ENGINE_PORT:-8082}:8080"   # rules-engine at localhost:8082

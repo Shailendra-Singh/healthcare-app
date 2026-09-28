@@ -39,15 +39,15 @@
       "implicitFlowEnabled": false,
       "serviceAccountsEnabled": false,
       "redirectUris": [
-        "http://localhost:3000/*",
-        "http://localhost:8080/*"
+        "http://localhost:${FRONTEND_PORT}/*",
+        "http://localhost:${GATEWAY_PORT}/*"
       ],
       "webOrigins": [
-        "http://localhost:3000",
-        "http://localhost:8080"
+        "http://localhost:${FRONTEND_PORT}",
+        "http://localhost:${GATEWAY_PORT}"
       ],
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:8080/*"
+        "post.logout.redirect.uris": "http://localhost:${FRONTEND_PORT}/*##http://localhost:${GATEWAY_PORT}/*"
       },
       "protocolMappers": [
         {
@@ -73,12 +73,12 @@
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false,
       "redirectUris": [
-        "http://localhost:3000/q/swagger-ui/*",
-        "http://localhost:8080/q/swagger-ui/*"
+        "http://localhost:${FRONTEND_PORT}/q/swagger-ui/*",
+        "http://localhost:${GATEWAY_PORT}/q/swagger-ui/*"
       ],
       "webOrigins": [
-        "http://localhost:3000",
-        "http://localhost:8080"
+        "http://localhost:${FRONTEND_PORT}",
+        "http://localhost:${GATEWAY_PORT}"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256"

@@ -34,11 +34,15 @@ browser ──► frontend (nginx, :3000) ──► /index.html, /app.js, /app.c
   HTTP-only cookie. The JavaScript never handles tokens.
 - The gateway decides what each role sees; the app shows whatever the gateway returns (a 403 on care needs is
   shown as "available to the clinical team"). A call without a session gets 499 and the app shows the login page.
-- Keycloak's `api-gateway` and `api-gateway-swagger` clients allow `http://localhost:3000` as a redirect URI.
+- Keycloak's `api-gateway` and `api-gateway-swagger` clients allow `http://localhost:${FRONTEND_PORT}` as a
+  redirect URI.
 
 ## Running
 
 With the whole stack, from the repository root: `podman compose up -d --build`, then open http://localhost:3000.
+
+To use another port, set `FRONTEND_PORT` in the root `.env`. Keycloak reads it when it first creates the realm; if
+the realm already exists, see *Changing ports later* in [services/keycloak/README.md](../services/keycloak/README.md).
 
 On its own, against a gateway running on the host (e.g. `./mvnw quarkus:dev` in `services/api-gateway`):
 

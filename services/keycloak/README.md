@@ -7,7 +7,8 @@ The identity provider for the api-gateway: Keycloak 26 with its own PostgreSQL 1
 podman compose up -d        # or: docker compose up -d
 ```
 
-- Login pages and admin console: http://localhost:8180 (admin console at `/admin`, with `KEYCLOAK_ADMIN_USER`)
+- Login pages and admin console: http://localhost:8180 (`KEYCLOAK_PORT`; admin console at `/admin`, with
+  `KEYCLOAK_ADMIN_USER`)
 - Realm `healthcare`, imported from `realm/healthcare-realm.json` on the **first** start only. To change it
   afterwards, use the admin console, or delete `.data/` (`podman unshare rm -rf .data` under rootless Podman)
   to re-import, which also deletes users created since.
@@ -38,5 +39,19 @@ does not cache themes: edit `resources/css/care-tasks.css` and reload the page.
 | `KEYCLOAK_ADMIN_USER`, `KEYCLOAK_ADMIN_PASSWORD` | Keycloak admin console login (not an app role) |
 | `GATEWAY_CLIENT_SECRET` | Secret of the `api-gateway` client; the same value goes in `services/api-gateway/.env` |
 | `ADMIN_USER_PASSWORD`, `SCHEDULER_USER_PASSWORD`, `CLINICAL_USER_PASSWORD` | Passwords of the three test users |
+| `KEYCLOAK_PORT` | Keycloak's port on this machine (default 8180): login pages and admin console |
+| `FRONTEND_PORT`, `GATEWAY_PORT` | The frontend's and gateway's ports (defaults 3000, 8080); the clients' login and logout return addresses use them |
+
+### Changing ports later
+
+The realm reads `FRONTEND_PORT` and `GATEWAY_PORT` only when it is first created. After changing either in an
+existing setup, restart Keycloak with the new values and update the two clients (from the repository root):
+
+```sh
+podman compose up -d --force-recreate keycloak
+podman compose exec -T keycloak sh < services/keycloak/sync-client-urls.sh
+```
+
+`KEYCLOAK_PORT` needs only the restart (of Keycloak and the api-gateway).
 
 `start-dev` serves plain HTTP for local use; production needs `start` with TLS and a real hostname.

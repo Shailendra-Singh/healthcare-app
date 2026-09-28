@@ -47,7 +47,7 @@ Start the other stacks first; each creates a network the gateway joins:
 ./mvnw package -DskipTests && podman compose up -d --build
 ```
 
-Only the gateway (`localhost:8080`) and Keycloak (`localhost:8180`) are published; the services are reachable
+Only the gateway (`localhost:8080`, `GATEWAY_PORT`) and Keycloak (`localhost:8180`, `KEYCLOAK_PORT`) are published; the services are reachable
 only through the gateway (each has a `compose.dev.yaml` that publishes its ports for local development).
 
 `.env` next to this file:
@@ -58,6 +58,9 @@ only through the gateway (each has a `compose.dev.yaml` that publishes its ports
 
 Dev mode (`./mvnw quarkus:dev`, port 8080) uses Keycloak at `localhost:8180` and the services at
 `localhost:8081`-`8083` and the ETL at `localhost:8084`, so start those stacks with their `compose.dev.yaml`.
+Their ports are configurable in each stack's `.env` (`CLINICAL_DATA_PORT`, `ETL_PORT`, `RULES_ENGINE_PORT`,
+`TASK_GENERATION_PORT`); point the gateway at them with `CLINICAL_DATA_URL`, `ETL_URL`, `RULES_ENGINE_URL` and
+`TASK_GENERATION_URL`.
 
 ## Tests
 

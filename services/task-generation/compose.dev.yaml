@@ -12,4 +12,4 @@ services:
       - "${DB_HOST_PORT:-5434}:5432"
   task-generation:
     ports:
-      - "8083:8080"   # task-generation at localhost:8083
+      - "${TASK_GENERATION_PORT:-8083}:8080"   # task-generation at localhost:8083
