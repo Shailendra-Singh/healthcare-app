@@ -59,8 +59,8 @@ podman run --rm -p 3000:8080 -e GATEWAY_URL=http://host.containers.internal:8080
 
 | | |
 |---|---|
-| `public/index.html` | The page: login, worklist and patients views |
-| `public/app.js` | The Alpine.js component: session check, API calls, filters, task actions |
+| `public/index.html` | The page: login, worklist, patients, and the admin ETL and evaluations views |
+| `public/app.js` | The Alpine.js component: session check, API calls, filters, task actions, running the ETL and evaluations |
 | `public/app.css` | The app's styles on top of Pico (badges, cards on phones, tab bar, patient sheet) |
 | `public/favicon.svg`, `favicon.ico`, `icons/` | App icon: browser tab, iOS home screen, Android (manifest) |
 | `public/manifest.json` | Web app manifest: name, colours and icons for "Add to home screen" |
