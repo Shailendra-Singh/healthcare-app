@@ -45,9 +45,13 @@ task-generation has its own stack (`compose.yaml` here): the app and a dedicated
 podman compose up -d --build        # or: docker compose up -d --build
 ```
 
-| | From your machine | Inside the networks |
+By default nothing is published on your machine: the API is reached through the api-gateway
+(`http://localhost:8080/task-generation/api/v1/...`, with a Keycloak login and role-based task types). For local
+development, add `compose.dev.yaml`: `podman compose -f compose.yaml -f compose.dev.yaml up -d`.
+
+| | With compose.dev.yaml | Inside the networks |
 |---|---|---|
-| task-generation | `localhost:8083` | `task-generation:8080` |
+| task-generation | `localhost:8083` | `task-generation:8080` (task-generation-api-network) |
 | task-generation-db | `localhost:5434` | `task-generation-db:5432` (task-generation-network only) |
 | rules-engine API | `localhost:8082` | `rules-engine:8080` (rules-engine-api-network) |
 
@@ -63,7 +67,7 @@ podman compose up -d --build        # or: docker compose up -d --build
 | `TZ` | No (UTC) | Container time zone |
 
 Locally in dev mode (port 8083, calling the rules-engine at `localhost:8082`), start just the database with
-`podman compose up -d task-generation-db`, then `./mvnw quarkus:dev`.
+`podman compose -f compose.yaml -f compose.dev.yaml up -d task-generation-db`, then `./mvnw quarkus:dev`.
 
 ## Tests
 

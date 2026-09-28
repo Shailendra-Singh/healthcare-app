@@ -42,9 +42,10 @@ public class TaskService {
     @Inject
     GenerationRunRepository generationRunRepository;
 
-    public List<TaskDto> search(List<Task.Status> statuses, String taskType, String programId, String specialty,
+    /** {@code taskTypes} empty for every type. */
+    public List<TaskDto> search(List<Task.Status> statuses, List<String> taskTypes, String programId, String specialty,
             String assignee, int page, int size) {
-        return taskRepository.search(statuses, taskType, programId, specialty, assignee, page, size)
+        return taskRepository.search(statuses, taskTypes, programId, specialty, assignee, page, size)
                 .stream().map(TaskDto::from).toList();
     }
 

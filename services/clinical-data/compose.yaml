@@ -7,6 +7,11 @@
 #   ./mvnw package -DskipTests
 #   docker compose up --build        # or: podman compose up --build
 #
+# Nothing is published on your machine: the API is reached through the api-gateway. For local development
+# (dev mode, psql, calling the API directly) add compose.dev.yaml, which publishes the ports:
+#
+#   podman compose -f compose.yaml -f compose.dev.yaml up -d
+#
 # POSTGRES_USER, POSTGRES_PASSWORD and DB_NAME come from .env next to this file,
 # which Compose reads automatically for ${...} substitution.
 
@@ -22,8 +27,6 @@ services:
     volumes:
       # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent
       - ./.data:/var/lib/postgresql
-    ports:
-      - "${DB_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -45,8 +48,6 @@ services:
       # Inside the network the database is reached by service name on its container port
       DB_HOST: postgres
       DB_HOST_PORT: "5432"
-    ports:
-      - "8081:8080"   # clinical-data at localhost:8081
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,0 +1,4 @@
+# Local environment (secrets)
+.env
+# Keycloak's database
+.data/

@@ -44,7 +44,7 @@ class TaskResourceTest {
 
     @Test
     void listDefaultsToActiveTasks() {
-        when(taskService.search(TaskRepository.ACTIVE, null, null, null, null, 1, 100)).thenReturn(List.of(referral(Task.Status.OPEN, null)));
+        when(taskService.search(TaskRepository.ACTIVE, List.of(), null, null, null, 1, 100)).thenReturn(List.of(referral(Task.Status.OPEN, null)));
 
         given().when().get("/api/v1/tasks")
                 .then().statusCode(200)
@@ -61,10 +61,13 @@ class TaskResourceTest {
         given().queryParam("status", "ALL").queryParam("taskType", "SCHEDULING").queryParam("programId", "diabetes-management")
                 .queryParam("specialty", "Cardiology").queryParam("assignee", "nurse.kim").queryParam("page", 2).queryParam("size", 50)
                 .when().get("/api/v1/tasks").then().statusCode(200);
-        verify(taskService).search(Arrays.asList(Task.Status.values()), "SCHEDULING", "diabetes-management", "Cardiology", "nurse.kim", 2, 50);
+        verify(taskService).search(Arrays.asList(Task.Status.values()), List.of("SCHEDULING"), "diabetes-management", "Cardiology", "nurse.kim", 2, 50);
 
         given().queryParam("status", "RESOLVED").when().get("/api/v1/tasks").then().statusCode(200);
-        verify(taskService).search(List.of(Task.Status.RESOLVED), null, null, null, null, 1, 100);
+        verify(taskService).search(List.of(Task.Status.RESOLVED), List.of(), null, null, null, 1, 100);
+
+        given().queryParam("taskType", "SCHEDULING").queryParam("taskType", "REFERRAL").when().get("/api/v1/tasks").then().statusCode(200);
+        verify(taskService).search(TaskRepository.ACTIVE, List.of("SCHEDULING", "REFERRAL"), null, null, null, 1, 100);
     }
 
     @Test

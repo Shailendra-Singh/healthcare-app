@@ -38,7 +38,11 @@ networks: `clinical-data-api-network` to call clinical-data (so start that stack
 podman compose up -d --build        # or: docker compose up -d --build
 ```
 
-| | From your machine | Inside the networks |
+By default nothing is published on your machine: the API is reached through the api-gateway
+(`http://localhost:8080/rules-engine/api/v1/...`, with a Keycloak login). For local development, add
+`compose.dev.yaml`, which publishes the ports below: `podman compose -f compose.yaml -f compose.dev.yaml up -d`.
+
+| | With compose.dev.yaml | Inside the networks |
 |---|---|---|
 | rules-engine | `localhost:8082` | `rules-engine:8080` (rules-engine-api-network) |
 | rules-engine-db | `localhost:5433` | `rules-engine-db:5432` (rules-engine-network only) |
@@ -58,8 +62,9 @@ podman compose up -d --build        # or: docker compose up -d --build
 The login and database are created only when `.data/` is empty; to change them later, remove `.data/`
 (`podman unshare rm -rf .data` under rootless Podman), which deletes the stored results.
 
-Locally in dev mode (port 8082, calling clinical-data at `localhost:8081`), start just the database with
-`podman compose up -d rules-engine-db`, then:
+Locally in dev mode (port 8082, calling clinical-data at `localhost:8081`, so start clinical-data with its
+`compose.dev.yaml` too), start just the database with
+`podman compose -f compose.yaml -f compose.dev.yaml up -d rules-engine-db`, then:
 
 ```sh
 ./mvnw quarkus:dev

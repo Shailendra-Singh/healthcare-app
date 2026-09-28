@@ -8,6 +8,9 @@
 #   ./mvnw package -DskipTests
 #   docker compose up --build        # or: podman compose up --build
 #
+# Nothing is published on your machine: the API is reached through the api-gateway. For local development add
+# compose.dev.yaml, which publishes the ports: podman compose -f compose.yaml -f compose.dev.yaml up -d
+#
 # RULES_DB_USER and RULES_DB_PASSWORD come from .env next to this file, which Compose reads
 # automatically for ${...} substitution.
 
@@ -23,9 +26,6 @@ services:
     volumes:
       # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent
       - ./.data:/var/lib/postgresql
-    ports:
-      # clinical-data's database has 5432
-      - "${DB_HOST_PORT:-5433}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -54,8 +54,6 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - ../../care-programs:/care-programs:ro
-    ports:
-      - "8082:8080"   # rules-engine at localhost:8082
     depends_on:
       rules-engine-db:
         condition: service_healthy

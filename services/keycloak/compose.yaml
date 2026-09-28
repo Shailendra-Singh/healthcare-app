@@ -1,0 +1,78 @@
+# Keycloak stack: the identity provider for the api-gateway, with its own PostgreSQL 18 on the private
+# keycloak-network. Only Keycloak also joins keycloak-api-network, which the api-gateway joins.
+#
+#   docker compose up -d        # or: podman compose up -d
+#
+# Keycloak imports realm/healthcare-realm.json (roles, clients, test users) the first time it starts;
+# secrets and passwords come from .env next to this file. Admin console: http://localhost:8180/admin
+#
+# start-dev serves plain HTTP for local use; production needs `start` with TLS and a real hostname.
+
+name: keycloak
+
+services:
+  keycloak-db:
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:?set KEYCLOAK_DB_USER in .env}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
+      POSTGRES_DB: keycloak
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent
+      - ./.data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - keycloak-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      # Keycloak's own admin console login (not an app role)
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?set KEYCLOAK_ADMIN_USER in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+      # Browsers use localhost:8180; the gateway calls keycloak:8080 on keycloak-api-network. Tokens always carry the
+      # browser-facing issuer, while back-channel endpoints (tokens, keys) answer on the internal host.
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      # Placeholders in realm/healthcare-realm.json
+      GATEWAY_CLIENT_SECRET: ${GATEWAY_CLIENT_SECRET:?set GATEWAY_CLIENT_SECRET in .env}
+      ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:?set ADMIN_USER_PASSWORD in .env}
+      SCHEDULER_USER_PASSWORD: ${SCHEDULER_USER_PASSWORD:?set SCHEDULER_USER_PASSWORD in .env}
+      CLINICAL_USER_PASSWORD: ${CLINICAL_USER_PASSWORD:?set CLINICAL_USER_PASSWORD in .env}
+    volumes:
+      - ./realm:/opt/keycloak/data/import:ro
+    ports:
+      - "8180:8080"   # Keycloak at localhost:8180 (login pages, admin console)
+    healthcheck:
+      # The image has no curl; ask the management port directly
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - keycloak-network
+      - keycloak-api-network
+
+networks:
+  # Private: Keycloak and its database
+  keycloak-network:
+    name: keycloak-network
+  # For the api-gateway; only Keycloak joins it here
+  keycloak-api-network:
+    name: keycloak-api-network

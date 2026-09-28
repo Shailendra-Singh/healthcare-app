@@ -54,14 +54,14 @@ class TaskRepositoryTest {
         insert("Nephrology", "SCHEDULING", Task.Status.RESOLVED, DAY1.minusDays(9), null);
 
         QuarkusTransaction.requiringNew().run(() -> {
-            List<Task> active = repository.search(TaskRepository.ACTIVE, null, null, null, null, 1, 10);
+            List<Task> active = repository.search(TaskRepository.ACTIVE, List.of(), null, null, null, 1, 10);
             assertEquals(List.of("Cardiology", "Endocrinology", "Podiatry"), active.stream().map(t -> t.specialty).toList());
             assertEquals(urgentHigh, active.get(0).id);
             assertEquals(urgentNormal, active.get(1).id);
-            assertEquals(List.of("Podiatry"), repository.search(TaskRepository.ACTIVE, "REFERRAL", null, null, null, 1, 10)
+            assertEquals(List.of("Podiatry"), repository.search(TaskRepository.ACTIVE, List.of("REFERRAL"), null, null, null, 1, 10)
                     .stream().map(t -> t.specialty).toList());
-            assertEquals(1, repository.search(TaskRepository.ACTIVE, null, null, "cardiology", null, 1, 10).size());
-            assertEquals(1, repository.search(TaskRepository.ACTIVE, null, null, null, null, 2, 2).size());
+            assertEquals(1, repository.search(TaskRepository.ACTIVE, List.of(), null, "cardiology", null, 1, 10).size());
+            assertEquals(1, repository.search(TaskRepository.ACTIVE, List.of(), null, null, null, 2, 2).size());
         });
     }
 
