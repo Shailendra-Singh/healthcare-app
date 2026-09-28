@@ -1,7 +1,7 @@
 # api-gateway
 
 The public entry point (backend for frontend): checks Keycloak roles, routes `/{service}/api/**` to
-clinical-data, rules-engine and task-generation, and serves one Swagger UI for all of them. No database.
+clinical-data, rules-engine, task-generation and the ETL, and serves one Swagger UI for all of them. No database.
 
 ## Roles
 
@@ -27,6 +27,8 @@ clinical-data, rules-engine and task-generation, and serves one Swagger UI for a
   the Keycloak login, keeps the session in a cookie and returns to `/`; `GET /logout` signs out and returns to `/`.
   JavaScript calls without a session get 499 instead of a redirect.
 - **API clients and Swagger UI** send a bearer token issued by Keycloak for the `api-gateway` audience.
+- **Behind an HTTPS reverse proxy** (TLS ending at the proxy), set `QUARKUS_OIDC_AUTHENTICATION_FORCE_REDIRECT_HTTPS_SCHEME=true`
+  so Keycloak is given `https://` return addresses, and allow the public domain in Keycloak's clients.
 - `GET /api/v1/me` returns the user, their roles and the task types they see.
 
 ## Swagger UI

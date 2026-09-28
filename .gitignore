@@ -26,11 +26,9 @@ replay_pid*
 # Local database data (e.g. services/*/.data mounted by docker compose)
 .data/
 
-# Environment files with secrets, in any folder
+# Environment files with secrets, in any folder (the template is env.template)
 .env
 .env.*
-# ...except the template
-!.env.example
 
 # ETL input files (may contain patient data). The folder itself is kept via data/.gitkeep
 /data/*

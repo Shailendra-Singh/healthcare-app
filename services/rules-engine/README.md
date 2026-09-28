@@ -22,7 +22,9 @@ Swagger UI: http://localhost:8082/q/swagger-ui
 | `GET /api/v1/programs` | Programs in the folder right now, and files that fail validation |
 | `GET /api/v1/programs/{id}` | One program's tiers and needs |
 | `POST /api/v1/evaluations` | Starts a run (202); 409 while one is running |
+| `GET /api/v1/evaluations` | Runs, newest first (paged), each successful one with its counts |
 | `GET /api/v1/evaluations/latest`, `/{runId}` | Run status, program file errors, counts per tier and status |
+| `GET /api/v1/evaluations/{runId}/care-needs` | All care needs of one successful run, paged (task-generation reads these) |
 | `GET /api/v1/patients/{patientId}/programs` | A patient's programs, tiers, evidence and care needs |
 | `GET /api/v1/care-needs` | Care gap list; filter by `programId`, `tierId`, `status`, `specialty` |
 

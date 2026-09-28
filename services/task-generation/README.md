@@ -25,7 +25,7 @@ Swagger UI: http://localhost:8083/q/swagger-ui
 
 | Endpoint | Does |
 |---|---|
-| `GET /api/v1/tasks` | Work list, most urgent first; `status` (ACTIVE by default, ALL or one status), `taskType`, `programId`, `specialty`, `assignee` |
+| `GET /api/v1/tasks` | Work list, most urgent first, paged (`page`, `size`); `status` (ACTIVE by default, ALL or one status), `taskType` (repeatable), `programId`, `specialty`, `assignee` |
 | `GET /api/v1/tasks/{taskId}` | A task with its history |
 | `PATCH /api/v1/tasks/{taskId}` | `{"actor": "...", "status": "...", "assignee": "...", "reason": "..."}`: OPEN to IN_PROGRESS, COMPLETED or CANCELLED; IN_PROGRESS to OPEN, COMPLETED or CANCELLED |
 | `GET /api/v1/patients/{patientId}/tasks` | A patient's tasks, open and closed |

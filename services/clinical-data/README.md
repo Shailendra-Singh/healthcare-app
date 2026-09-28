@@ -25,7 +25,7 @@ Read-only; Swagger UI at `/q/swagger-ui`. All paths are under `/api/v1`.
 | Path | |
 |---|---|
 | `/patients`, `/patients/{id}`, `/patients/source/{sourcePatientId}` | Patients, paged |
-| `/patients/{id}/diagnoses`, `/lab-results`, `/encounters` | A patient's clinical history |
+| `/patients/{id}/diagnoses`, `/lab-results`, `/encounters`, `/encounters/upcoming` | A patient's clinical history and booked visits |
 | `/languages`, `/specialties`, `/lab-tests`, `/providers`, `/condition-groups`, `/diagnosis-codes` | Reference data |
 | `/evaluation-inputs` | Everything the rules-engine needs, in bulk |
 | `/etl-runs`, `/etl-runs/latest`, `/etl-heartbeat` | ETL loads and the last folder check |
@@ -46,6 +46,7 @@ Dev mode (live reload, Dev UI at http://localhost:8081/q/dev/) against the conta
 
 | Variable | Default | |
 |---|---|---|
+| `DB_HOST`, `DB_HOST_PORT` | `localhost`, `5432` | The database, for `./mvnw quarkus:dev` (compose sets its own) |
 | `ETL_INTERVAL_SECONDS` | `300` | How often the ETL checks the data folder |
 | `ETL_FILE_SETTLE_SECONDS` | `30` | Files changed more recently are treated as still being written |
 | `CLINICAL_DATA_PORT`, `ETL_PORT` | `8081`, `8084` | Ports that `compose.dev.yaml` publishes |

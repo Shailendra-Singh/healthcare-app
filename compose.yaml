@@ -3,8 +3,8 @@
 #   docker compose up -d --build       # or: podman compose up -d --build
 #
 # Builds every service from source (no local JDK or Maven needed), starts each with its own PostgreSQL 18,
-# plus Keycloak, the api-gateway and the frontend. Settings and secrets come from .env next to this file (see
-# .env.example).
+# plus Keycloak, the api-gateway and the frontend. Settings and secrets come from .env next to this file (copy
+# env.template).
 #
 # Only three ports are published, each configurable in .env:
 #   http://localhost:3000   FRONTEND_PORT  frontend: the Care Tasks web app (and, through it, the gateway and Swagger UI)
