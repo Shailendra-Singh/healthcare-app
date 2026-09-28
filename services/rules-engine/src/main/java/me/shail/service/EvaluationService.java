@@ -129,10 +129,13 @@ public class EvaluationService {
         return careNeed;
     }
 
-    /** Null before clinical-data's first ETL run. */
-    private Long latestEtlRunId() {
+    /**
+     * clinical-data's latest successful ETL run; null before its first. Only successful loads count, so a run that
+     * starts during a load never claims that load's data.
+     */
+    public Long latestEtlRunId() {
         try {
-            EtlRun etlRun = clinicalData.latestEtlRun();
+            EtlRun etlRun = clinicalData.latestEtlRun("SUCCEEDED");
             return etlRun == null ? null : etlRun.runId();
         } catch (WebApplicationException e) {
             if (e.getResponse() != null && e.getResponse().getStatus() == 404) {

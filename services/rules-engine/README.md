@@ -3,8 +3,9 @@
 Evaluates every patient in clinical-data against the care programs in `care-programs/` (repo root) and
 stores each patient's programs, tier and care needs in its own `rules_engine` database.
 
-- **Runs** daily (`EVALUATION_CRON`, default 06:00), on startup when today has no successful run yet,
-  and on demand with `POST /api/v1/evaluations`.
+- **Runs** daily (`EVALUATION_CRON`, default 06:00), after each new successful ETL load in clinical-data
+  (checked every `ETL_CHECK_EVERY`, default 1 minute), on startup when today has no successful run yet, and on
+  demand with `POST /api/v1/evaluations`.
 - **Rules** are re-read from `care-programs/` at the start of every run: edit, add or remove a YAML file
   and the next run uses it, no redeploy. A file that fails validation is reported and its last good
   version is used. See `care-programs/README.md` for the rule syntax.
@@ -57,6 +58,7 @@ By default nothing is published on your machine: the API is reached through the 
 | `DB_HOST_PORT` | No (5433) | Host port of the rules-engine database |
 | `RULES_DB_NAME` | No (`rules_engine`) | Database name |
 | `EVALUATION_CRON` | No (`0 0 6 * * ?`) | Daily run time (Quartz cron) |
+| `ETL_CHECK_EVERY` | No (`1m`) | How often to check clinical-data for a new ETL load to re-evaluate after |
 | `TZ` | No (UTC) | Time zone that decides "today" in the container |
 
 The login and database are created only when `.data/` is empty; to change them later, remove `.data/`

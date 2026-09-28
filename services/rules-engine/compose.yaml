@@ -50,6 +50,8 @@ services:
       CLINICAL_DATA_URL: http://clinical-data:8080
       CARE_PROGRAMS_DIR: /care-programs
       EVALUATION_CRON: ${EVALUATION_CRON:-0 0 6 * * ?}
+      # Re-evaluate after each new successful ETL load; how often to check clinical-data for one
+      ETL_CHECK_EVERY: ${ETL_CHECK_EVERY:-1m}
       # "Today" for ages, lab windows and due dates follows this time zone
       TZ: ${TZ:-UTC}
     volumes:

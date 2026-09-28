@@ -9,4 +9,7 @@ public interface LoadRunRepository extends RecordRepository.Reactive.CustomId<Lo
 
     @Query("from LoadRun order by id desc limit 1")
     Uni<LoadRun> findLatest();
+
+    @Query("from LoadRun where status = :status order by id desc limit 1")
+    Uni<LoadRun> findLatestByStatus(String status);
 }

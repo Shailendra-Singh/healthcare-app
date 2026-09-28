@@ -30,7 +30,16 @@ public class LoadRunService {
 
     /** The most recent run with its files and reject counts; null when the ETL has never run. */
     public Uni<LoadRunDto> findLatest() {
-        return loadRunRepository.findLatest()
+        return withFilesOrNull(loadRunRepository.findLatest());
+    }
+
+    /** The most recent run with this status (e.g. SUCCEEDED); null when there is none. */
+    public Uni<LoadRunDto> findLatest(String status) {
+        return withFilesOrNull(loadRunRepository.findLatestByStatus(status));
+    }
+
+    private Uni<LoadRunDto> withFilesOrNull(Uni<LoadRun> latest) {
+        return latest
                 .onFailure(NoResultException.class).recoverWithNull()
                 .chain(run -> run == null ? Uni.createFrom().nullItem() : withFiles(run));
     }

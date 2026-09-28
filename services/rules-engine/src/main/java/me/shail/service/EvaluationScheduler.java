@@ -13,8 +13,9 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
- * Runs the evaluation daily ({@code rules-engine.evaluation.cron}) and, after a restart, once on startup
- * if today has no successful run yet.
+ * Runs the evaluation daily ({@code rules-engine.evaluation.cron}), after a restart once on startup if today has
+ * no successful run yet, and whenever clinical-data finishes a new successful ETL load (checked every
+ * {@code rules-engine.evaluation.etl-check-every}).
  */
 @ApplicationScoped
 public class EvaluationScheduler {
@@ -49,6 +50,30 @@ public class EvaluationScheduler {
             Uni.createFrom().voidItem().onItem().delayIt().by(startupDelay)
                     .subscribe().with(ignored -> runIfNotDoneToday(), e -> LOG.error("Startup evaluation failed", e));
         }
+    }
+
+    @Scheduled(identity = "etl-check", every = "{rules-engine.evaluation.etl-check-every}",
+            delayed = "{rules-engine.evaluation.startup-delay}", concurrentExecution = Scheduled.ConcurrentExecution.SKIP)
+    void checkForNewData() {
+        try {
+            if (hasNewData()) {
+                LOG.info("clinical-data has a new successful ETL load; re-evaluating");
+                runUnlessBusy(EvaluationRun.Trigger.DATA_CHANGED);
+            }
+        } catch (RuntimeException e) {
+            // e.g. clinical-data is down: check again next time
+            LOG.warnf("Could not check clinical-data for a new ETL load: %s", e.getMessage());
+        }
+    }
+
+    /** True when clinical-data's latest successful ETL load is newer than the one the latest evaluation used. */
+    boolean hasNewData() {
+        Long latestLoad = evaluationService.latestEtlRunId();
+        if (latestLoad == null) {
+            return false;
+        }
+        Long evaluatedLoad = store.latestSucceeded().map(run -> run.sourceEtlRunId).orElse(null);
+        return evaluatedLoad == null || latestLoad > evaluatedLoad;
     }
 
     void runIfNotDoneToday() {

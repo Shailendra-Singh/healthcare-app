@@ -1,0 +1,271 @@
+# The whole system in one command, from the repository root:
+#
+#   docker compose up -d --build       # or: podman compose up -d --build
+#
+# Builds every service from source (no local JDK or Maven needed), starts each with its own PostgreSQL 18,
+# plus Keycloak and the api-gateway. Settings and secrets come from .env next to this file (see .env.example).
+#
+# Only two ports are published:
+#   http://localhost:8080   api-gateway: the APIs (Keycloak login, role-based) and Swagger UI at /q/swagger-ui
+#   http://localhost:8180   Keycloak: login pages and admin console
+#
+# Data lives in ./.data/<service>; CSVs dropped into ./data are loaded by the ETL, evaluated by the rules-engine
+# and turned into tasks automatically. Each service also has its own compose.yaml under services/ for working on
+# it alone; don't run both at once (they use the same ports).
+
+name: healthcare
+
+x-postgres-healthcheck: &postgres-healthcheck
+  test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+  interval: 5s
+  timeout: 5s
+  retries: 10
+
+services:
+
+  # --- clinical-data: patients, diagnoses, labs, encounters, and the CSV ETL ---
+
+  clinical-data-db:
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_USER: ${CLINICAL_DB_USER:?set CLINICAL_DB_USER in .env}
+      POSTGRES_PASSWORD: ${CLINICAL_DB_PASSWORD:?set CLINICAL_DB_PASSWORD in .env}
+      POSTGRES_DB: clinical_data
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent
+      - ./.data/clinical-data:/var/lib/postgresql
+    healthcheck: *postgres-healthcheck
+    restart: unless-stopped
+    networks:
+      - clinical-data-network
+
+  clinical-data:
+    build:
+      context: ./services/clinical-data
+      dockerfile: src/main/docker/Dockerfile.build
+    image: healthcare/clinical-data:latest
+    environment:
+      POSTGRES_USER: ${CLINICAL_DB_USER}
+      POSTGRES_PASSWORD: ${CLINICAL_DB_PASSWORD}
+      DB_NAME: clinical_data
+      DB_HOST: clinical-data-db
+      DB_HOST_PORT: "5432"
+      TZ: ${TZ:-UTC}
+    depends_on:
+      clinical-data-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - clinical-data-network
+      - clinical-data-api-network
+
+  etl:
+    build: ./services/clinical-data/etl
+    image: healthcare/clinical-data-etl:latest
+    environment:
+      POSTGRES_USER: ${CLINICAL_DB_USER}
+      POSTGRES_PASSWORD: ${CLINICAL_DB_PASSWORD}
+      DB_NAME: clinical_data
+      DB_HOST: clinical-data-db
+      DB_HOST_PORT: "5432"
+      DATA_DIR: /data
+      ETL_INTERVAL_SECONDS: ${ETL_INTERVAL_SECONDS:-300}
+      ETL_FILE_SETTLE_SECONDS: ${ETL_FILE_SETTLE_SECONDS:-30}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      clinical-data-db:
+        condition: service_healthy
+      # The app's Flyway migrations create the tables; the ETL waits for them if needed
+      clinical-data:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - clinical-data-network
+
+  # --- rules-engine: care program membership, tiers and care needs ---
+
+  rules-engine-db:
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_USER: ${RULES_DB_USER:?set RULES_DB_USER in .env}
+      POSTGRES_PASSWORD: ${RULES_DB_PASSWORD:?set RULES_DB_PASSWORD in .env}
+      POSTGRES_DB: rules_engine
+    volumes:
+      - ./.data/rules-engine:/var/lib/postgresql
+    healthcheck: *postgres-healthcheck
+    restart: unless-stopped
+    networks:
+      - rules-engine-network
+
+  rules-engine:
+    build:
+      context: ./services/rules-engine
+      dockerfile: src/main/docker/Dockerfile.build
+    image: healthcare/rules-engine:latest
+    environment:
+      RULES_DB_USER: ${RULES_DB_USER}
+      RULES_DB_PASSWORD: ${RULES_DB_PASSWORD}
+      RULES_DB_NAME: rules_engine
+      DB_HOST: rules-engine-db
+      DB_HOST_PORT: "5432"
+      CLINICAL_DATA_URL: http://clinical-data:8080
+      CARE_PROGRAMS_DIR: /care-programs
+      EVALUATION_CRON: ${EVALUATION_CRON:-0 0 6 * * ?}
+      # Re-evaluate after each new successful ETL load; how often to check clinical-data for one
+      ETL_CHECK_EVERY: ${ETL_CHECK_EVERY:-1m}
+      # "Today" for ages, lab windows and due dates follows this time zone
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./care-programs:/care-programs:ro
+    depends_on:
+      rules-engine-db:
+        condition: service_healthy
+      clinical-data:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - rules-engine-network
+      - rules-engine-api-network
+      - clinical-data-api-network
+
+  # --- task-generation: scheduling and referral tasks ---
+
+  task-generation-db:
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_USER: ${TASK_DB_USER:?set TASK_DB_USER in .env}
+      POSTGRES_PASSWORD: ${TASK_DB_PASSWORD:?set TASK_DB_PASSWORD in .env}
+      POSTGRES_DB: task_generation
+    volumes:
+      - ./.data/task-generation:/var/lib/postgresql
+    healthcheck: *postgres-healthcheck
+    restart: unless-stopped
+    networks:
+      - task-generation-network
+
+  task-generation:
+    build:
+      context: ./services/task-generation
+      dockerfile: src/main/docker/Dockerfile.build
+    image: healthcare/task-generation:latest
+    environment:
+      TASK_DB_USER: ${TASK_DB_USER}
+      TASK_DB_PASSWORD: ${TASK_DB_PASSWORD}
+      TASK_DB_NAME: task_generation
+      DB_HOST: task-generation-db
+      DB_HOST_PORT: "5432"
+      RULES_ENGINE_URL: http://rules-engine:8080
+      TASK_POLL_EVERY: ${TASK_POLL_EVERY:-5m}
+      TZ: ${TZ:-UTC}
+    depends_on:
+      task-generation-db:
+        condition: service_healthy
+      rules-engine:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - task-generation-network
+      - task-generation-api-network
+      - rules-engine-api-network
+
+  # --- keycloak: users and roles for the api-gateway ---
+
+  keycloak-db:
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:?set KEYCLOAK_DB_USER in .env}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
+      POSTGRES_DB: keycloak
+    volumes:
+      - ./.data/keycloak:/var/lib/postgresql
+    healthcheck: *postgres-healthcheck
+    restart: unless-stopped
+    networks:
+      - keycloak-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.4
+    # start-dev serves plain HTTP for local use; production needs `start` with TLS and a real hostname
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      # Keycloak's own admin console login (not an app role)
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?set KEYCLOAK_ADMIN_USER in .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
+      # Browsers use localhost:8180; the gateway calls keycloak:8080. Tokens always carry the browser-facing issuer.
+      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      # Placeholders in the realm file
+      GATEWAY_CLIENT_SECRET: ${GATEWAY_CLIENT_SECRET:?set GATEWAY_CLIENT_SECRET in .env}
+      ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:?set ADMIN_USER_PASSWORD in .env}
+      SCHEDULER_USER_PASSWORD: ${SCHEDULER_USER_PASSWORD:?set SCHEDULER_USER_PASSWORD in .env}
+      CLINICAL_USER_PASSWORD: ${CLINICAL_USER_PASSWORD:?set CLINICAL_USER_PASSWORD in .env}
+    volumes:
+      # Imported on the first start only
+      - ./services/keycloak/realm:/opt/keycloak/data/import:ro
+    ports:
+      - "8180:8080"   # Keycloak at localhost:8180
+    healthcheck:
+      # The image has no curl; ask the management port directly
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - keycloak-network
+      - keycloak-api-network
+
+  # --- api-gateway: the public entry point ---
+
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: src/main/docker/Dockerfile.build
+    image: healthcare/api-gateway:latest
+    environment:
+      GATEWAY_CLIENT_SECRET: ${GATEWAY_CLIENT_SECRET}
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_PUBLIC_URL: http://localhost:8180
+      CLINICAL_DATA_URL: http://clinical-data:8080
+      RULES_ENGINE_URL: http://rules-engine:8080
+      TASK_GENERATION_URL: http://task-generation:8080
+      TZ: ${TZ:-UTC}
+    ports:
+      - "8080:8080"   # api-gateway at localhost:8080; Swagger UI at /q/swagger-ui
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      clinical-data:
+        condition: service_started
+      rules-engine:
+        condition: service_started
+      task-generation:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - keycloak-api-network
+      - clinical-data-api-network
+      - rules-engine-api-network
+      - task-generation-api-network
+
+# Each service's database is on its private network only; the *-api networks carry only API calls
+networks:
+  clinical-data-network:
+  clinical-data-api-network:
+  rules-engine-network:
+  rules-engine-api-network:
+  task-generation-network:
+  task-generation-api-network:
+  keycloak-network:
+  keycloak-api-network:

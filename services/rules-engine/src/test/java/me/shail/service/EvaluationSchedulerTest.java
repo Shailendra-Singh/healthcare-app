@@ -1,5 +1,7 @@
 package me.shail.service;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -24,6 +26,59 @@ class EvaluationSchedulerTest {
 
     @InjectMocks
     EvaluationScheduler scheduler;
+
+    @Test
+    void aNewerSuccessfulLoadThanTheLastEvaluationsIsNewData() {
+        when(evaluationService.latestEtlRunId()).thenReturn(5L);
+        when(store.latestSucceeded()).thenReturn(Optional.of(runOnLoad(4L)));
+
+        assertTrue(scheduler.hasNewData());
+    }
+
+    @Test
+    void theLoadTheLastEvaluationUsedIsNotNewData() {
+        when(evaluationService.latestEtlRunId()).thenReturn(5L);
+        when(store.latestSucceeded()).thenReturn(Optional.of(runOnLoad(5L)));
+
+        assertFalse(scheduler.hasNewData());
+    }
+
+    @Test
+    void aLoadAfterAnEvaluationWithoutDataIsNewData() {
+        when(evaluationService.latestEtlRunId()).thenReturn(1L);
+        when(store.latestSucceeded()).thenReturn(Optional.of(runOnLoad(null)));
+        assertTrue(scheduler.hasNewData(), "evaluated before the first load");
+
+        when(store.latestSucceeded()).thenReturn(Optional.empty());
+        assertTrue(scheduler.hasNewData(), "never evaluated");
+    }
+
+    @Test
+    void noSuccessfulLoadYetIsNoNewData() {
+        when(evaluationService.latestEtlRunId()).thenReturn(null);
+
+        assertFalse(scheduler.hasNewData());
+        verify(store, never()).latestSucceeded();
+    }
+
+    @Test
+    void newDataStartsADataChangedEvaluation() {
+        when(evaluationService.latestEtlRunId()).thenReturn(2L);
+        when(store.latestSucceeded()).thenReturn(Optional.of(runOnLoad(1L)));
+
+        scheduler.checkForNewData();
+
+        verify(evaluationService).run(EvaluationRun.Trigger.DATA_CHANGED);
+    }
+
+    @Test
+    void theCheckSurvivesClinicalDataBeingDown() {
+        when(evaluationService.latestEtlRunId()).thenThrow(new jakarta.ws.rs.ProcessingException("Connection refused"));
+
+        scheduler.checkForNewData();
+
+        verify(evaluationService, never()).run(EvaluationRun.Trigger.DATA_CHANGED);
+    }
 
     @Test
     void startupRunsWhenTodayHasNoSuccessfulRun() {
@@ -59,6 +114,12 @@ class EvaluationSchedulerTest {
         scheduler.daily();
 
         verify(evaluationService).run(EvaluationRun.Trigger.SCHEDULED);
+    }
+
+    private static EvaluationRun runOnLoad(Long etlRunId) {
+        EvaluationRun run = run(LocalDate.now());
+        run.sourceEtlRunId = etlRunId;
+        return run;
     }
 
     private static EvaluationRun run(LocalDate asOf) {
