@@ -35,7 +35,12 @@
         <!-- 1. DATABASE & PERSISTENCE (The "Dual Stack" for Flyway + Reactive) -->
         <dependency>
             <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-panache-next</artifactId>
+            <artifactId>quarkus-data-hibernate</artifactId>
+        </dependency>
+        <!-- Jakarta Data annotations (@Find, @Query, @OrderBy) for repository methods -->
+        <dependency>
+            <groupId>jakarta.data</groupId>
+            <artifactId>jakarta.data-api</artifactId>
         </dependency>
         <!-- FIXME: this will not be required in the future -->
         <dependency>
@@ -118,6 +123,21 @@
                 <version>${compiler-plugin.version}</version>
                 <configuration>
                     <parameters>true</parameters>
+                    <!-- Resolve processor versions from the Quarkus BOM -->
+                    <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
+                    <annotationProcessorPaths>
+                        <!-- Generates the Quarkus Data repository implementations (brings hibernate-processor) -->
+                        <path>
+                            <groupId>io.quarkus</groupId>
+                            <artifactId>quarkus-data-processor</artifactId>
+                        </path>
+                        <!-- Listing processors disables classpath discovery, so Lombok must be listed too -->
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.38</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
             <plugin>
