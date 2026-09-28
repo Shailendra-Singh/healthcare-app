@@ -1,0 +1,126 @@
+/* Care Tasks: plain CSS, no framework */
+
+:root {
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --text: #1f2933;
+  --muted: #616e7c;
+  --border: #d9e2ec;
+  --accent: #1f6feb;
+  --accent-text: #ffffff;
+  --danger: #c62828;
+  --overdue: #fff4f4;
+  --radius: 8px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+[x-cloak] { display: none !important; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+h1, h2, h3, h4 { margin: 0 0 .5rem; }
+a { color: var(--accent); }
+.muted { color: var(--muted); }
+.hint { color: var(--muted); font-size: .85rem; margin-top: .5rem; }
+.splash { padding: 4rem; text-align: center; color: var(--muted); }
+
+/* --- Buttons and badges --- */
+button, .button {
+  display: inline-block; padding: .35rem .75rem; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); font: inherit; font-size: .9rem; cursor: pointer; text-decoration: none;
+}
+button:hover:not(:disabled), .button:hover { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.wide { display: block; text-align: center; padding: .65rem; font-size: 1rem; }
+
+.badge { display: inline-block; white-space: nowrap; padding: .1rem .5rem; border-radius: 999px; font-size: .78rem; font-weight: 600; background: #e4e7eb; }
+.badge.role { background: #e8f0fe; color: #174ea6; }
+.badge.scheduling { background: #e3f2fd; color: #0d47a1; }
+.badge.referral { background: #f3e5f5; color: #6a1b9a; }
+.badge.high { background: #ffebee; color: var(--danger); margin-left: .25rem; }
+.badge.open, .badge.overdue { background: #fff3e0; color: #b35c00; }
+.badge.in_progress, .badge.scheduled { background: #e3f2fd; color: #0d47a1; }
+.badge.completed, .badge.met { background: #e8f5e9; color: #1b5e20; }
+.badge.cancelled, .badge.resolved { background: #eceff1; color: #455a64; }
+
+/* --- Login page --- */
+.login { min-height: 100vh; display: grid; place-items: center; padding: 1rem; }
+.login-card {
+  width: min(440px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 2rem; box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+}
+.login-card h1 { font-size: 1.6rem; }
+.roles { width: 100%; margin-top: 1.5rem; border-collapse: collapse; font-size: .9rem; }
+.roles caption { text-align: left; font-weight: 600; margin-bottom: .4rem; }
+.roles th { text-align: left; white-space: nowrap; padding: .35rem .75rem .35rem 0; vertical-align: top; }
+.roles td { padding: .35rem 0; color: var(--muted); }
+.roles tr + tr { border-top: 1px solid var(--border); }
+.login-links { margin: 1.25rem 0 0; font-size: .9rem; }
+
+/* --- App shell --- */
+.topbar {
+  display: flex; align-items: center; gap: 1.5rem; padding: .6rem 1.25rem; background: var(--surface);
+  border-bottom: 1px solid var(--border); flex-wrap: wrap;
+}
+.brand { font-weight: 700; font-size: 1.05rem; }
+.topbar nav { display: flex; gap: .25rem; }
+.topbar nav a { padding: .35rem .75rem; border-radius: 6px; text-decoration: none; color: var(--muted); }
+.topbar nav a.active { background: #e8f0fe; color: var(--accent); font-weight: 600; }
+.user { margin-left: auto; display: flex; align-items: center; gap: 1rem; font-size: .9rem; }
+.who { display: flex; align-items: center; gap: .4rem; }
+
+main { padding: 1.25rem; }
+.error { margin: 1rem 1.25rem 0; padding: .6rem .9rem; border-radius: 6px; background: #ffebee; color: var(--danger); }
+.title-row { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.title-row p { margin: 0; }
+
+/* --- Filters --- */
+.filters, .search { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; margin-bottom: 1rem; }
+.search { margin: 0 0 0 auto; gap: .5rem; align-items: center; }
+.filters label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; color: var(--muted); font-weight: 600; }
+.filters label.check { flex-direction: row; align-items: center; font-size: .9rem; color: var(--text); font-weight: normal; }
+select, input[type="search"] {
+  padding: .4rem .5rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; background: var(--surface);
+  min-width: 180px;
+}
+
+/* --- Tables --- */
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.grid { width: 100%; border-collapse: collapse; }
+.grid th, .grid td { padding: .55rem .75rem; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.grid th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); background: #fafbfc; }
+.grid tbody tr:last-child td { border-bottom: none; }
+.grid tr.overdue td:first-child { border-left: 3px solid var(--danger); }
+.grid tr.overdue { background: var(--overdue); }
+.grid.selectable tbody tr { cursor: pointer; }
+.grid.selectable tbody tr:hover { background: #f0f4f8; }
+.grid tr.selected { background: #e8f0fe; }
+.grid.compact th, .grid.compact td { padding: .35rem .5rem; font-size: .85rem; }
+.actions { white-space: nowrap; }
+.actions button { margin-right: .25rem; }
+.actions .muted { font-size: .8rem; }
+.empty { text-align: center; color: var(--muted); padding: 2rem !important; }
+.pager { display: flex; gap: .75rem; align-items: center; justify-content: flex-end; margin-top: .75rem; }
+
+/* --- Patients --- */
+.patients { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 460px); gap: 1.25rem; align-items: start; }
+.patient-detail {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem;
+  position: sticky; top: 1rem;
+}
+.patient-detail h4 { margin-top: 1.25rem; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: 0; font-size: .9rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.program { border: 1px solid var(--border); border-radius: 6px; padding: .75rem; margin-bottom: .75rem; }
+.program-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.evidence { font-size: .85rem; color: var(--muted); margin: .4rem 0 .6rem; }
+
+@media (max-width: 900px) {
+  .patients { grid-template-columns: 1fr; }
+  .patient-detail { position: static; }
+  .user { margin-left: 0; }
+}

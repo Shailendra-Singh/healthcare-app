@@ -1,0 +1,54 @@
+# frontend
+
+Care Tasks: the web app for schedulers and the clinical team. Plain HTML, CSS and JavaScript with
+[Alpine.js](https://alpinejs.dev) (vendored in `public/vendor`, no build step, no npm), served by nginx.
+
+- **Login page**: *Sign in* goes to the organisation's Keycloak page; the app never sees passwords.
+- **Worklist**: the tasks the user's role may see, filtered by task type, specialty, status and "assigned to me";
+  start, complete, cancel or reopen a task.
+  - Scheduler: scheduling tasks only.
+  - Clinical team: scheduling and referral tasks.
+  - Admin: every task.
+- **Patients**: the patient list and search; a patient's care programs and needs (clinical team and admin) and
+  their tasks.
+- **Swagger UI** link in the header and on the login page.
+
+## How it fits together
+
+nginx serves `public/` and passes every other path to the api-gateway, so the page and the API share one origin:
+
+```
+browser ──► frontend (nginx, :3000) ──► /index.html, /app.js, /app.css, /vendor/*
+                     └──────────────► api-gateway: /login, /logout, /api/v1/me, /{service}/api/**, /q/swagger-ui
+```
+
+- Login is the gateway's (backend for frontend): `/login` runs the Keycloak login and keeps the session in an
+  HTTP-only cookie. The JavaScript never handles tokens.
+- The gateway decides what each role sees; the app shows whatever the gateway returns (a 403 on care needs is
+  shown as "available to the clinical team"). A call without a session gets 499 and the app shows the login page.
+- Keycloak's `api-gateway` and `api-gateway-swagger` clients allow `http://localhost:3000` as a redirect URI.
+
+## Running
+
+With the whole stack, from the repository root: `podman compose up -d --build`, then open http://localhost:3000.
+
+On its own, against a gateway running on the host (e.g. `./mvnw quarkus:dev` in `services/api-gateway`):
+
+```sh
+podman build -t healthcare/frontend .
+podman run --rm -p 3000:8080 -e GATEWAY_URL=http://host.containers.internal:8080 healthcare/frontend
+```
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `GATEWAY_URL` | Where nginx sends everything that isn't a file in `public/` | `http://api-gateway:8080` |
+
+## Files
+
+| | |
+|---|---|
+| `public/index.html` | The page: login, worklist and patients views |
+| `public/app.js` | The Alpine.js component: session check, API calls, filters, task actions |
+| `public/app.css` | Styles |
+| `public/vendor/` | Alpine.js 3.17.4 (see its README for source and integrity hash) |
+| `nginx/default.conf.template` | Static files, proxy to the gateway, security headers |

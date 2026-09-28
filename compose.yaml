@@ -3,9 +3,11 @@
 #   docker compose up -d --build       # or: podman compose up -d --build
 #
 # Builds every service from source (no local JDK or Maven needed), starts each with its own PostgreSQL 18,
-# plus Keycloak and the api-gateway. Settings and secrets come from .env next to this file (see .env.example).
+# plus Keycloak, the api-gateway and the frontend. Settings and secrets come from .env next to this file (see
+# .env.example).
 #
-# Only two ports are published:
+# Only three ports are published:
+#   http://localhost:3000   frontend: the Care Tasks web app (and, through it, the gateway and Swagger UI)
 #   http://localhost:8080   api-gateway: the APIs (Keycloak login, role-based) and Swagger UI at /q/swagger-ui
 #   http://localhost:8180   Keycloak: login pages and admin console
 #
@@ -258,6 +260,29 @@ services:
       - clinical-data-api-network
       - rules-engine-api-network
       - task-generation-api-network
+      - frontend-network
+
+  # --- frontend: the web app, on the same origin as the gateway it proxies ---
+
+  frontend:
+    build: ./frontend
+    image: healthcare/frontend:latest
+    environment:
+      GATEWAY_URL: http://api-gateway:8080
+      TZ: ${TZ:-UTC}
+    ports:
+      - "3000:8080"   # the web app at localhost:3000
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/index.html"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      api-gateway:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - frontend-network
 
 # Each service's database is on its private network only; the *-api networks carry only API calls
 networks:
@@ -269,3 +294,4 @@ networks:
   task-generation-api-network:
   keycloak-network:
   keycloak-api-network:
+  frontend-network:

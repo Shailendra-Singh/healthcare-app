@@ -22,8 +22,9 @@ clinical-data, rules-engine and task-generation, and serves one Swagger UI for a
 
 ## Login
 
-- **Browsers** (a frontend): open any protected page and the gateway runs the Keycloak login and keeps the
-  session in a cookie; `GET /logout` signs out. JavaScript calls without a session get 499 instead of a redirect.
+- **Browsers** (the [frontend](../../frontend), which proxies these paths on its own origin): `GET /login` runs
+  the Keycloak login, keeps the session in a cookie and returns to `/`; `GET /logout` signs out and returns to `/`.
+  JavaScript calls without a session get 499 instead of a redirect.
 - **API clients and Swagger UI** send a bearer token issued by Keycloak for the `api-gateway` audience.
 - `GET /api/v1/me` returns the user, their roles and the task types they see.
 
