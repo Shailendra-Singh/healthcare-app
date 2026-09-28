@@ -5,6 +5,7 @@
 #
 # Keycloak imports realm/healthcare-realm.json (roles, clients, test users) the first time it starts;
 # secrets and passwords come from .env next to this file. Admin console: http://localhost:8180/admin
+# (KEYCLOAK_PORT in .env; FRONTEND_PORT and GATEWAY_PORT set the login return addresses)
 #
 # start-dev serves plain HTTP for local use; production needs `start` with TLS and a real hostname.
 
@@ -42,11 +43,14 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?set KEYCLOAK_ADMIN_PASSWORD in .env}
       # Browsers use localhost:8180; the gateway calls keycloak:8080 on keycloak-api-network. Tokens always carry the
       # browser-facing issuer, while back-channel endpoints (tokens, keys) answer on the internal host.
-      KC_HOSTNAME: http://localhost:8180
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HEALTH_ENABLED: "true"
       # Placeholders in realm/healthcare-realm.json
       GATEWAY_CLIENT_SECRET: ${GATEWAY_CLIENT_SECRET:?set GATEWAY_CLIENT_SECRET in .env}
+      # The frontend's and gateway's ports: the login and logout return addresses
+      FRONTEND_PORT: ${FRONTEND_PORT:-3000}
+      GATEWAY_PORT: ${GATEWAY_PORT:-8080}
       ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:?set ADMIN_USER_PASSWORD in .env}
       SCHEDULER_USER_PASSWORD: ${SCHEDULER_USER_PASSWORD:?set SCHEDULER_USER_PASSWORD in .env}
       CLINICAL_USER_PASSWORD: ${CLINICAL_USER_PASSWORD:?set CLINICAL_USER_PASSWORD in .env}
@@ -55,7 +59,7 @@ services:
       # The Care Tasks login theme (the realm's loginTheme)
       - ./themes/care-tasks:/opt/keycloak/themes/care-tasks:ro
     ports:
-      - "8180:8080"   # Keycloak at localhost:8180 (login pages, admin console)
+      - "${KEYCLOAK_PORT:-8180}:8080"   # Keycloak at localhost:8180 (login pages, admin console)
     healthcheck:
       # The image has no curl; ask the management port directly
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]

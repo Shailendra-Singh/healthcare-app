@@ -45,8 +45,8 @@ By default nothing is published on your machine: the API is reached through the 
 
 | | With compose.dev.yaml | Inside the networks |
 |---|---|---|
-| rules-engine | `localhost:8082` | `rules-engine:8080` (rules-engine-api-network) |
-| rules-engine-db | `localhost:5433` | `rules-engine-db:5432` (rules-engine-network only) |
+| rules-engine | `localhost:8082` (`RULES_ENGINE_PORT`) | `rules-engine:8080` (rules-engine-api-network) |
+| rules-engine-db | `localhost:5433` (`DB_HOST_PORT`) | `rules-engine-db:5432` (rules-engine-network only) |
 | clinical-data API | `localhost:8081` | `clinical-data:8080` (clinical-data-api-network) |
 
 `.env` next to this file:

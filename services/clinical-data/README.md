@@ -48,6 +48,7 @@ Dev mode (live reload, Dev UI at http://localhost:8081/q/dev/) against the conta
 |---|---|---|
 | `ETL_INTERVAL_SECONDS` | `300` | How often the ETL checks the data folder |
 | `ETL_FILE_SETTLE_SECONDS` | `30` | Files changed more recently are treated as still being written |
+| `CLINICAL_DATA_PORT`, `ETL_PORT` | `8081`, `8084` | Ports that `compose.dev.yaml` publishes |
 
 ## Tests
 
