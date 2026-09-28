@@ -47,6 +47,24 @@ class LoadRunResourceTest {
     }
 
     @Test
+    void listReturnsOnePageOfRuns() {
+        when(loadRunService.findPage(2, 10)).thenReturn(Uni.createFrom().item(List.of(
+                new LoadRunDto(12L, "SUCCEEDED", null, null, null, 0, List.of()),
+                new LoadRunDto(11L, "FAILED", null, null, "BadCopyFileFormat: column name mismatch", 0, List.of()))));
+
+        given().queryParam("page", 2).queryParam("size", 10).when().get("/api/v1/etl-runs")
+                .then().statusCode(200)
+                .body("runId", contains(12, 11))
+                .body("[1].errorMessage", is("BadCopyFileFormat: column name mismatch"));
+    }
+
+    @Test
+    void listRejectsBadPaging() {
+        given().queryParam("page", 0).when().get("/api/v1/etl-runs").then().statusCode(400);
+        given().queryParam("size", 101).when().get("/api/v1/etl-runs").then().statusCode(400);
+    }
+
+    @Test
     void latestSucceededUsesTheStatusFilter() {
         when(loadRunService.findLatest("SUCCEEDED")).thenReturn(Uni.createFrom().item(
                 new LoadRunDto(4L, "SUCCEEDED", null, null, null, 0, List.of())));
@@ -66,5 +84,6 @@ class LoadRunResourceTest {
     void writesAreNotAllowed() {
         given().contentType("application/json").body("{}").when().post(PATH).then().statusCode(oneOf(404, 405));
         given().when().delete(PATH).then().statusCode(oneOf(404, 405));
+        given().contentType("application/json").body("{}").when().post("/api/v1/etl-runs").then().statusCode(oneOf(404, 405));
     }
 }

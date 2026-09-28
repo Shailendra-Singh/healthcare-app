@@ -51,6 +51,7 @@ public class AccessPolicy {
             Rule.of("task-generation", "GET", "/api/v1/patients/[^/]+/tasks", ALL_ROLES),
             Rule.of("task-generation", "GET", "/api/v1/task-types", ALL_ROLES),
             Rule.of("task-generation", "GET", "/api/v1/generation-runs(/.*)?", CLINICAL));
+    // etl (asking the ETL to check the data folder now) and clinical-data's ETL runs and heartbeat: admin only
 
     @Inject
     GatewayConfig config;

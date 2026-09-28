@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.smallrye.mutiny.Uni;
+import jakarta.data.page.PageRequest;
 import jakarta.persistence.NoResultException;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -71,6 +72,36 @@ class LoadRunServiceTest {
         assertEquals("FAILED", latest.status());
         assertEquals(run.errorMessage, latest.errorMessage());
         assertEquals(0, latest.rejectedRows());
+    }
+
+    @Test
+    void findPageAddsEachRunsFilesInOrder() {
+        LoadRun newer = run(8L, "SUCCEEDED");
+        LoadRun older = run(7L, "FAILED");
+        LoadFile labs = file(8L, "labs.csv", 50);
+        when(loadRunRepository.findNewestFirst(PageRequest.ofPage(2, 5, false)))
+                .thenReturn(Uni.createFrom().item(List.of(newer, older)));
+        when(loadFileRepository.findByRun(8L)).thenReturn(Uni.createFrom().item(List.of(labs)));
+        when(loadFileRepository.findByRun(7L)).thenReturn(Uni.createFrom().item(List.of()));
+        when(loadRejectRepository.countByFile(8L))
+                .thenReturn(Uni.createFrom().item(List.<Object[]>of(new Object[] {"labs.csv", 1L})));
+        when(loadRejectRepository.countByFile(7L)).thenReturn(Uni.createFrom().item(List.of()));
+
+        List<LoadRunDto> page = service.findPage(2, 5).await().indefinitely();
+
+        assertEquals(List.of(8L, 7L), page.stream().map(LoadRunDto::runId).toList());
+        assertEquals(List.of(LoadFileDto.from(labs, 1)), page.getFirst().files());
+        assertEquals(1, page.getFirst().rejectedRows());
+        assertEquals(List.of(), page.get(1).files());
+    }
+
+    @Test
+    void findPageIsEmptyWhenTheEtlHasNeverRun() {
+        when(loadRunRepository.findNewestFirst(PageRequest.ofPage(1, 20, false)))
+                .thenReturn(Uni.createFrom().item(List.of()));
+
+        assertEquals(List.of(), service.findPage(1, 20).await().indefinitely());
+        verifyNoInteractions(loadFileRepository, loadRejectRepository);
     }
 
     @Test

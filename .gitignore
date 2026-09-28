@@ -35,3 +35,7 @@ replay_pid*
 # ETL input files (may contain patient data). The folder itself is kept via data/.gitkeep
 /data/*
 !/data/.gitkeep
+
+# Python bytecode caches
+__pycache__/
+*.pyc

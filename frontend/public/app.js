@@ -4,6 +4,8 @@
 
 const ROLE_LABELS = { admin: 'Admin', scheduler: 'Scheduler', 'clinical-team': 'Clinical team' };
 const TYPE_LABELS = { SCHEDULING: 'Scheduling', REFERRAL: 'Referral' };
+const TRIGGER_LABELS = { SCHEDULED: 'Scheduled', MANUAL: 'Manual', STARTUP: 'Startup', DATA_CHANGED: 'New data' };
+const ADMIN_VIEWS = ['etl', 'evaluations'];
 const STATUS_LABELS = {
   OPEN: 'Open', IN_PROGRESS: 'In progress', COMPLETED: 'Completed', CANCELLED: 'Cancelled', RESOLVED: 'Resolved',
   MET: 'Met', SCHEDULED: 'Scheduled', OVERDUE: 'Overdue',
@@ -42,6 +44,10 @@ document.addEventListener('alpine:init', () => {
     patientSearch: '',
     searching: false,
     loadingPatients: false,
+    // Admin pages; notice: { kind: 'info' | 'success' | 'error', text }
+    etl: { heartbeat: null, runs: [], loading: false, busy: false, force: false, notice: null },
+    evaluations: { runs: [], programs: [], loading: false, busy: false, notice: null },
+
     selected: null, // { patient, programs, programsForbidden, tasks }; programs and tasks: null while loading, false on error
 
     async init() {
@@ -60,13 +66,24 @@ document.addEventListener('alpine:init', () => {
     },
 
     route() {
-      const view = location.hash.replace(/^#\//, '');
-      this.view = view === 'patients' ? 'patients' : 'worklist';
-      if (this.view === 'worklist') {
-        this.loadTasks();
-      } else if (this.patients.length === 0 && !this.searching) {
-        this.loadPatients();
+      let view = location.hash.replace(/^#\//, '');
+      if (!['worklist', 'patients', ...ADMIN_VIEWS].includes(view) || (ADMIN_VIEWS.includes(view) && !this.isAdmin())) {
+        view = 'worklist';
       }
+      this.view = view;
+      if (view === 'worklist') {
+        this.loadTasks();
+      } else if (view === 'patients') {
+        if (this.patients.length === 0 && !this.searching) this.loadPatients();
+      } else if (view === 'etl') {
+        this.loadEtl();
+      } else {
+        this.loadEvaluations();
+      }
+    },
+
+    isAdmin() {
+      return (this.me?.roles || []).includes('admin');
     },
 
     /**
@@ -218,6 +235,162 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    // --- ETL (admins) ---
+
+    async loadEtl() {
+      this.etl.loading = true;
+      try {
+        const [heartbeat, runs] = await Promise.all([
+          this.api('/clinical-data/api/v1/etl-heartbeat').catch((e) => (e.status === 404 ? null : Promise.reject(e))),
+          this.api('/clinical-data/api/v1/etl-runs?size=20'),
+        ]);
+        this.etl.heartbeat = heartbeat;
+        this.etl.runs = runs;
+      } catch (e) {
+        this.showError(e);
+      } finally {
+        this.etl.loading = false;
+      }
+    },
+
+    /** Asks the ETL to check the data folder now, then follows its heartbeat until it reports back. */
+    async runEtl() {
+      const { force } = this.etl;
+      const before = this.etl.heartbeat?.checkedAt;
+      this.etl.busy = true;
+      this.etl.notice = { kind: 'info', text: force ? 'Reload requested; waiting for the ETL…' : 'Check requested; waiting for the ETL…' };
+      try {
+        await this.api('/etl/api/v1/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ force }),
+        });
+        const heartbeat = await this.poll(
+          () => this.api('/clinical-data/api/v1/etl-heartbeat').catch((e) => (e.status === 404 ? null : Promise.reject(e))),
+          (beat) => beat && beat.checkedAt !== before,
+          120_000,
+        );
+        await this.loadEtl();
+        this.etl.notice = !heartbeat
+          ? { kind: 'error', text: 'The ETL has not reported back yet; refresh this page in a moment.' }
+          : {
+              kind: heartbeat.outcome === 'failed' ? 'error' : 'success',
+              text: heartbeat.detail + (heartbeat.outcome === 'loaded' ? '. The rules-engine re-evaluates within a minute.' : ''),
+            };
+      } catch (e) {
+        this.etl.notice = { kind: 'error', text: e.message };
+      } finally {
+        this.etl.busy = false;
+      }
+    },
+
+    heartbeatClass(outcome) {
+      return { loaded: 'completed', unchanged: 'met', waiting: 'open', busy: 'open', failed: 'overdue' }[outcome] || '';
+    },
+
+    // --- Evaluations (admins) ---
+
+    async loadEvaluations() {
+      this.evaluations.loading = true;
+      try {
+        const [runs, catalog] = await Promise.all([
+          this.api('/rules-engine/api/v1/evaluations?size=20'),
+          this.evaluations.programs.length ? null : this.api('/rules-engine/api/v1/programs'),
+        ]);
+        this.evaluations.runs = runs;
+        if (catalog) this.evaluations.programs = catalog.programs;
+      } catch (e) {
+        this.showError(e);
+      } finally {
+        this.evaluations.loading = false;
+      }
+    },
+
+    /** Starts an evaluation (or follows the one already running) until it finishes. */
+    async runEvaluation() {
+      this.evaluations.busy = true;
+      try {
+        let run;
+        try {
+          run = await this.api('/rules-engine/api/v1/evaluations', { method: 'POST' });
+        } catch (e) {
+          if (e.status !== 409) throw e;
+          run = await this.api('/rules-engine/api/v1/evaluations/latest');
+        }
+        this.evaluations.notice = { kind: 'info', text: `Evaluation run ${run.runId} is running…` };
+        const done = await this.poll(
+          () => this.api(`/rules-engine/api/v1/evaluations/${run.runId}`),
+          (latest) => latest.status !== 'RUNNING',
+          300_000,
+        );
+        await this.loadEvaluations();
+        if (!done) {
+          this.evaluations.notice = { kind: 'info', text: `Run ${run.runId} is still running; refresh this page later.` };
+        } else if (done.status === 'SUCCEEDED') {
+          const overdue = done.summary?.needsByStatus?.OVERDUE ?? 0;
+          this.evaluations.notice = {
+            kind: 'success',
+            text: `Run ${done.runId} finished: ${done.patientsEvaluated} patients, ${overdue} overdue care needs. Tasks follow within a few minutes.`,
+          };
+        } else {
+          this.evaluations.notice = { kind: 'error', text: `Run ${done.runId} failed: ${done.errorMessage || 'see the rules-engine log'}` };
+        }
+      } catch (e) {
+        this.evaluations.notice = { kind: 'error', text: e.message };
+      } finally {
+        this.evaluations.busy = false;
+      }
+    },
+
+    /** The newest successful run: the stats and tiers describe it. */
+    latestEvaluation() {
+      return this.evaluations.runs.find((run) => run.status === 'SUCCEEDED') || null;
+    },
+
+    /** Care needs of the latest successful run with this status, or all of them. */
+    needs(status) {
+      const counts = this.latestEvaluation()?.summary?.needsByStatus || {};
+      return status ? counts[status] || 0 : Object.values(counts).reduce((a, b) => a + b, 0);
+    },
+
+    /** Patients per tier, grouped by program, in the order the programs define their tiers. */
+    tierSummary() {
+      const counts = this.latestEvaluation()?.summary?.tiers || [];
+      const programIds = [...new Set(counts.map((count) => count.programId))];
+      return programIds.map((programId) => {
+        const program = this.evaluations.programs.find((p) => p.id === programId);
+        const order = (program?.tiers || []).map((tier) => tier.id);
+        const tiers = counts
+          .filter((count) => count.programId === programId)
+          .map((count) => ({
+            tierId: count.tierId,
+            name: count.tierId === null ? 'No tier' : program?.tiers.find((t) => t.id === count.tierId)?.name || count.tierId,
+            patients: count.patients,
+          }))
+          .sort((a, b) => (order.indexOf(a.tierId) + 1 || 99) - (order.indexOf(b.tierId) + 1 || 99));
+        return {
+          programId,
+          name: program?.name || this.programLabel(programId),
+          tiers,
+          total: tiers.reduce((sum, tier) => sum + tier.patients, 0),
+          max: Math.max(1, ...tiers.map((tier) => tier.patients)),
+        };
+      });
+    },
+
+    triggerLabel: (trigger) => TRIGGER_LABELS[trigger] || trigger,
+
+    /** Calls fetch() every 2 seconds until done(result) holds; null after the timeout. */
+    async poll(fetch, done, timeoutMs) {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const result = await fetch();
+        if (done(result)) return result;
+      }
+      return null;
+    },
+
     // --- Display helpers ---
 
     roleLabel: (role) => ROLE_LABELS[role] || role,
@@ -246,6 +419,33 @@ document.addEventListener('alpine:init', () => {
       if (roles.includes('scheduler')) return 'Scheduling tasks: patients who need an appointment booked.';
       return 'Your account has no role in this app; ask an administrator.';
     },
+
+    sum: (items, field) => (items || []).reduce((total, item) => total + (item[field] || 0), 0),
+
+    /** 2026-09-28T08:11:46Z -> "Sep 28, 2026, 8:11 AM" in the browser's locale and time zone */
+    dateTime: (iso) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—'),
+
+    /** "3 minutes ago", "in 4 minutes" */
+    relativeTime(iso) {
+      if (!iso) return '—';
+      const seconds = Math.round((new Date(iso) - Date.now()) / 1000);
+      const format = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+      for (const [unit, size] of [['day', 86400], ['hour', 3600], ['minute', 60]]) {
+        if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
+      }
+      return format.format(seconds, 'second');
+    },
+
+    /** 40 -> "< 0.1 s", 1500 -> "1.5 s", 125000 -> "2 min 5 s" */
+    duration(ms) {
+      if (ms < 100) return '< 0.1 s';
+      if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)} s`;
+      const minutes = Math.floor(ms / 60_000);
+      const seconds = Math.round((ms % 60_000) / 1000);
+      return seconds ? `${minutes} min ${seconds} s` : `${minutes} min`;
+    },
+
+    fileSize: (bytes) => (bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`),
 
     isOverdue(task) {
       return (task.status === 'OPEN' || task.status === 'IN_PROGRESS') && task.dueDate < this.today();

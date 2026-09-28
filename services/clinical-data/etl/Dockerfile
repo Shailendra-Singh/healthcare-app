@@ -12,4 +12,7 @@ COPY clinical_data_etl.py .
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin etl
 USER etl
 
+# HTTP API: POST /api/v1/runs asks for a check now (reached through the api-gateway, admins only)
+EXPOSE 8080
+
 ENTRYPOINT ["python", "clinical_data_etl.py"]

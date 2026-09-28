@@ -1,7 +1,9 @@
 package me.shail.service;
 
 import io.quarkus.hibernate.reactive.panache.common.WithSession;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import jakarta.data.page.PageRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
@@ -36,6 +38,15 @@ public class LoadRunService {
     /** The most recent run with this status (e.g. SUCCEEDED); null when there is none. */
     public Uni<LoadRunDto> findLatest(String status) {
         return withFilesOrNull(loadRunRepository.findLatestByStatus(status));
+    }
+
+    /** Runs newest first, each with its files and reject counts; {@code page} starts at 1. */
+    public Uni<List<LoadRunDto>> findPage(long page, int size) {
+        return loadRunRepository.findNewestFirst(PageRequest.ofPage(page, size, false))
+                // One run after another: a reactive session runs one query at a time
+                .chain(runs -> Multi.createFrom().iterable(runs)
+                        .onItem().transformToUniAndConcatenate(this::withFiles)
+                        .collect().asList());
     }
 
     private Uni<LoadRunDto> withFilesOrNull(Uni<LoadRun> latest) {

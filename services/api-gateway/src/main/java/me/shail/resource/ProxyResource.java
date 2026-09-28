@@ -23,7 +23,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
  * Routes {@code /{service}/api/**} to that service, after checking the caller's roles. Each service's own API is
  * documented in the Swagger UI dropdown; these catch-all methods are hidden from the gateway's own spec.
  */
-@Path("/{service:clinical-data|rules-engine|task-generation}/{path:api/.+}")
+@Path("/{service:clinical-data|rules-engine|task-generation|etl}/{path:api/.+}")
 @Authenticated
 public class ProxyResource {
 

@@ -76,6 +76,11 @@ services:
       TZ: ${TZ:-UTC}
     volumes:
       - ./data:/data:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/q/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     depends_on:
       clinical-data-db:
         condition: service_healthy
@@ -85,6 +90,8 @@ services:
     restart: unless-stopped
     networks:
       - clinical-data-network
+      # Its HTTP API (check now), for the api-gateway only
+      - etl-api-network
 
   # --- rules-engine: care program membership, tiers and care needs ---
 
@@ -242,6 +249,7 @@ services:
       CLINICAL_DATA_URL: http://clinical-data:8080
       RULES_ENGINE_URL: http://rules-engine:8080
       TASK_GENERATION_URL: http://task-generation:8080
+      ETL_URL: http://etl:8080
       TZ: ${TZ:-UTC}
     ports:
       - "8080:8080"   # api-gateway at localhost:8080; Swagger UI at /q/swagger-ui
@@ -260,6 +268,7 @@ services:
       - clinical-data-api-network
       - rules-engine-api-network
       - task-generation-api-network
+      - etl-api-network
       - frontend-network
 
   # --- frontend: the web app, on the same origin as the gateway it proxies ---
@@ -288,6 +297,7 @@ services:
 networks:
   clinical-data-network:
   clinical-data-api-network:
+  etl-api-network:
   rules-engine-network:
   rules-engine-api-network:
   task-generation-network:

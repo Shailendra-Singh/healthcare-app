@@ -51,6 +51,16 @@ public class EvaluationResource {
     }
 
     @GET
+    @Operation(summary = "Evaluation runs",
+            description = "Newest first; each SUCCEEDED run has its summary (patients per tier, needs per status). "
+                    + "`page` starts at 1. Only the newest runs are kept.")
+    public List<EvaluationRunDto> list(
+            @RestQuery @DefaultValue("1") @Min(1) int page,
+            @RestQuery @DefaultValue("20") @Min(1) @Max(100) int size) {
+        return resultsService.runs(page, size);
+    }
+
+    @GET
     @Path("/latest")
     @Operation(summary = "Latest evaluation run",
             description = "With result counts when it SUCCEEDED. `status=SUCCEEDED` returns the latest successful run "

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.vertx.RunOnVertxContext;
 import io.quarkus.test.vertx.UniAsserter;
+import jakarta.data.page.PageRequest;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import java.util.List;
@@ -75,6 +76,19 @@ class LoadRunRepositoryTest {
 
         asserter.assertThat(() -> sessions.read(() -> loadRunRepository.findLatestByStatus("SUCCEEDED")),
                 run -> assertEquals(succeeded, run.id));
+    }
+
+    @Test
+    @RunOnVertxContext
+    void findNewestFirstPagesFromTheLatestRun(UniAsserter asserter) {
+        long first = seedRun("SUCCEEDED", null);
+        long second = seedRun("FAILED", "BadCopyFileFormat: column name mismatch");
+        long third = seedRun("SUCCEEDED", null);
+
+        asserter.assertThat(() -> sessions.read(() -> loadRunRepository.findNewestFirst(PageRequest.ofPage(1, 2, false))),
+                runs -> assertEquals(List.of(third, second), runs.stream().map(run -> run.id).toList()));
+        asserter.assertThat(() -> sessions.read(() -> loadRunRepository.findNewestFirst(PageRequest.ofPage(2, 2, false))),
+                runs -> assertEquals(List.of(first), runs.stream().map(run -> run.id).toList()));
     }
 
     @Test

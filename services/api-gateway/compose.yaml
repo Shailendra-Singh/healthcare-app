@@ -26,6 +26,7 @@ services:
       CLINICAL_DATA_URL: http://clinical-data:8080
       RULES_ENGINE_URL: http://rules-engine:8080
       TASK_GENERATION_URL: http://task-generation:8080
+      ETL_URL: http://etl:8080
       TZ: ${TZ:-UTC}
     ports:
       - "8080:8080"   # api-gateway at localhost:8080; Swagger UI at /q/swagger-ui
@@ -35,6 +36,7 @@ services:
       - clinical-data-api-network
       - rules-engine-api-network
       - task-generation-api-network
+      - etl-api-network
 
 networks:
   # All created by the other stacks
@@ -49,4 +51,7 @@ networks:
     external: true
   task-generation-api-network:
     name: task-generation-api-network
+    external: true
+  etl-api-network:
+    name: etl-api-network
     external: true

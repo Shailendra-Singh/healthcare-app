@@ -2,10 +2,14 @@ package me.shail.resource;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
+import java.util.List;
 import me.shail.dto.LoadRunDto;
 import me.shail.service.LoadRunService;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -18,6 +22,16 @@ public class LoadRunResource {
 
     @Inject
     LoadRunService loadRunService;
+
+    @GET
+    @Operation(summary = "ETL runs",
+            description = "Newest first, each with its files, rows loaded and rows rejected; `page` starts at 1. "
+                    + "Cycles that found the files unchanged are not recorded (see /etl-heartbeat).")
+    public Uni<List<LoadRunDto>> list(
+            @RestQuery @DefaultValue("1") @Min(1) long page,
+            @RestQuery @DefaultValue("20") @Min(1) @Max(100) int size) {
+        return loadRunService.findPage(page, size);
+    }
 
     /** 404 until the ETL has loaded files at least once. */
     @GET

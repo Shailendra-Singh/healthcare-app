@@ -12,6 +12,11 @@ step, no npm), served by nginx.
   - Admin: every task.
 - **Patients**: the patient list and search; a patient's care programs and needs (clinical team and admin) and
   their tasks.
+- **ETL** (admins): when the ETL last checked the data folder, the latest load with its files, rows and
+  rejected rows, and the load history. *Run ETL now* checks the folder immediately; *Reload even if unchanged*
+  loads the files again, which also re-runs the evaluation and task generation downstream.
+- **Evaluations** (admins): the latest evaluation's patients, care needs by status (met, scheduled, overdue) and
+  patients per program and tier, with the run history. *Run evaluation now* starts one and follows it to the end.
 - **Swagger UI** link in the user menu and on the login page.
 - **Phones**: tables become cards, the tabs move to a bar at the bottom, and the patient detail opens full
   screen. Light and dark themes follow the device. It can be added to the home screen (web app manifest).

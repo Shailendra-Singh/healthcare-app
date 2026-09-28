@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -49,6 +50,27 @@ class ProxyResourceTest {
         given().when().post("/rules-engine/api/v1/evaluations").then().statusCode(202).body("runId", is(9));
         given().queryParam("page", 2).queryParam("size", 5).when().get("/clinical-data/api/v1/patients")
                 .then().statusCode(200).body("[0].id", is(6));
+    }
+
+    @Test
+    @TestSecurity(user = "ada", roles = "admin")
+    void adminCanAskTheEtlToCheckNow() {
+        when(downstream.send(eq("etl"), eq("POST"), eq("/api/v1/runs"), isNull(), eq("application/json"), any()))
+                .thenReturn(DownstreamResponse.json(202, "{\"force\":true}"));
+
+        given().contentType("application/json").body("{\"force\":true}").when().post("/etl/api/v1/runs")
+                .then().statusCode(202).body("force", is(true));
+        verify(downstream).send(eq("etl"), eq("POST"), eq("/api/v1/runs"), isNull(), eq("application/json"),
+                argThat(body -> new String(body, StandardCharsets.UTF_8).equals("{\"force\":true}")));
+    }
+
+    @Test
+    @TestSecurity(user = "cleo", roles = "clinical-team")
+    void onlyAdminsRunTheEtlOrSeeItsHistory() {
+        given().when().post("/etl/api/v1/runs").then().statusCode(403);
+        given().when().get("/clinical-data/api/v1/etl-runs").then().statusCode(403);
+        given().when().post("/rules-engine/api/v1/evaluations").then().statusCode(403);
+        verify(downstream, never()).send(anyString(), anyString(), anyString(), any(), any(), any());
     }
 
     @Test

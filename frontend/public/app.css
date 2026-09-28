@@ -20,7 +20,7 @@ body { min-height: 100vh; background: var(--pico-background-color); }
 .page { width: 100%; max-width: 1400px; margin-inline: auto; padding-inline: 1.25rem; }
 .muted { color: var(--pico-muted-color); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.mobile-only { display: none; }
+@media (min-width: 768px) { .mobile-only { display: none !important; } }
 .splash { padding: 5rem 1rem; text-align: center; color: var(--pico-muted-color); }
 h2 { margin-bottom: .25rem; }
 
@@ -49,7 +49,10 @@ button.close {
 .badge.referral { --badge: var(--app-purple); }
 .badge.high, .badge.overdue { --badge: var(--app-danger); }
 .badge.open { --badge: var(--app-warning); }
-.badge.completed, .badge.met { --badge: var(--app-success); }
+.badge.completed, .badge.met, .badge.succeeded { --badge: var(--app-success); }
+.badge.failed { --badge: var(--app-danger); }
+.badge.running, .badge.started, .badge.loaded { --badge: var(--app-info); }
+.danger-text { color: var(--app-danger); }
 
 .alert {
   display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1rem;
@@ -153,6 +156,53 @@ table tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--pico-primary)
 .need-status { display: flex; flex-direction: column; align-items: flex-end; gap: .2rem; text-align: right; }
 .need-status .badge + .badge { margin-top: .1rem; }
 
+/* --- Admin pages: ETL and evaluations --- */
+.run-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.run-controls label, .run-controls button { margin: 0; }
+.run-controls .switch { display: flex; align-items: center; gap: .5rem; font-size: .9rem; }
+.notice {
+  --notice: var(--app-info);
+  margin-bottom: 1rem; padding: .65rem 1rem; border-radius: var(--pico-border-radius); font-size: .92rem;
+  border: 1px solid color-mix(in srgb, var(--notice) 30%, transparent);
+  background: color-mix(in srgb, var(--notice) 9%, var(--pico-background-color));
+  color: color-mix(in srgb, var(--notice) 70%, var(--pico-color));
+}
+.notice.success { --notice: var(--app-success); }
+.notice.error { --notice: var(--app-danger); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.stat {
+  display: flex; flex-direction: column; gap: .3rem; margin: 0; padding: 1rem 1.1rem;
+  box-shadow: var(--app-shadow); border: 1px solid var(--pico-muted-border-color);
+}
+.stat > small:first-child { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; color: var(--pico-muted-color); font-weight: 600; }
+.stat > strong { font-size: 1.6rem; line-height: 1.2; }
+.stat.warning { border-color: color-mix(in srgb, var(--app-danger) 45%, transparent); }
+.stat.warning > strong { color: var(--app-danger); }
+.stat small { display: block; }
+.stat .badge + small { display: inline; margin-left: .35rem; }
+.admin-page .section-title { margin: 1.5rem 0 .6rem; }
+td.wrap { white-space: normal; max-width: 28rem; }
+td code { font-size: .8rem; padding: .1rem .35rem; }
+
+.needs-bar {
+  display: flex; height: 2rem; border-radius: var(--pico-border-radius); overflow: hidden;
+  font-size: .8rem; font-weight: 700; color: #fff;
+}
+.needs-bar span { display: grid; place-items: center; min-width: 2rem; flex-basis: 0; }
+.needs-bar .met, .legend .met::before { background: var(--app-success); }
+.needs-bar .scheduled, .legend .scheduled::before { background: var(--app-info); }
+.needs-bar .overdue, .legend .overdue::before { background: var(--app-danger); }
+.legend { display: flex; gap: 1.25rem; margin: .5rem 0 1rem; font-size: .8rem; color: var(--pico-muted-color); }
+.legend span::before { content: ""; display: inline-block; width: .7rem; height: .7rem; margin-right: .35rem; border-radius: 2px; vertical-align: -1px; }
+
+.tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.tier-card { margin: 0; box-shadow: var(--app-shadow); border: 1px solid var(--pico-muted-border-color); }
+.tier-card header { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .75rem; }
+.tier-row { display: grid; grid-template-columns: minmax(7rem, 9rem) 1fr 2rem; align-items: center; gap: .75rem; padding: .3rem 0; font-size: .9rem; }
+.tier-row strong { text-align: right; }
+.tier-bar { height: .6rem; border-radius: 999px; background: var(--pico-muted-border-color); overflow: hidden; }
+.tier-bar span { display: block; height: 100%; border-radius: 999px; background: var(--pico-primary-background); }
+
 /* --- Cancel dialog --- */
 dialog article { width: min(480px, calc(100vw - 2rem)); }
 dialog footer { display: flex; justify-content: flex-end; gap: .5rem; }
@@ -161,7 +211,6 @@ dialog footer button { margin: 0; }
 /* --- Phones and small tablets --- */
 @media (max-width: 767px) {
   .page { padding-inline: 1rem; }
-  .mobile-only { display: inline; }
   .desktop-only { display: none !important; }
   .username { display: none; }
   main.page { padding-bottom: calc(var(--app-tabbar-height) + 1.5rem + env(safe-area-inset-bottom)); }
@@ -172,7 +221,7 @@ dialog footer button { margin: 0; }
   /* Tabs become an app-style bar at the bottom */
   .topbar nav .tabs {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; margin: 0;
-    display: grid; grid-template-columns: 1fr 1fr; height: calc(var(--app-tabbar-height) + env(safe-area-inset-bottom));
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: calc(var(--app-tabbar-height) + env(safe-area-inset-bottom));
     padding: 0 0 env(safe-area-inset-bottom); background: var(--pico-card-background-color);
     border-top: 1px solid var(--pico-muted-border-color); box-shadow: 0 -2px 12px rgb(0 0 0 / .06);
   }
@@ -212,6 +261,14 @@ dialog footer button { margin: 0; }
   table.cards tr.state-row td { justify-content: center; }
 
   .pager { justify-content: space-between; }
+
+  .run-controls { width: 100%; }
+  .run-controls button { flex: 1 1 100%; }
+  .stats { grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .stat { padding: .8rem; }
+  .stat > strong { font-size: 1.25rem; }
+  td.wrap { max-width: none; }
+  table.cards td.wrap small { text-align: right; }
 
   /* The patient detail opens as a full-screen sheet above the list */
   .patients { display: block; }

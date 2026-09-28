@@ -50,6 +50,13 @@ public class ResultsService {
         return evaluationRunRepository.findLatestSucceeded().map(this::toDto);
     }
 
+    /** Runs newest first, each SUCCEEDED one with its summary; {@code page} starts at 1. */
+    public List<EvaluationRunDto> runs(int page, int size) {
+        return evaluationRunRepository.findNewestFirst(PageRequest.ofPage(page, size, false)).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     public Optional<EvaluationRunDto> run(Long runId) {
         return evaluationRunRepository.findById(runId).map(this::toDto);
     }
