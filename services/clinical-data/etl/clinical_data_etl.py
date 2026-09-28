@@ -49,6 +49,7 @@ LOCK_KEY = 7_340_001
 RETRY_SECONDS = 10
 
 UTF8_BOM = b"\xef\xbb\xbf"
+TRAILING_WHITESPACE = b" \t\r\n"
 
 log = logging.getLogger("clinical-data-etl")
 
@@ -147,6 +148,9 @@ def copy_into_raw(conn: psycopg.Connection, csv_file: CsvFile, table: str, colum
     HEADER MATCH makes PostgreSQL reject a file whose header does not list exactly these columns in
     this order. The bytes are hashed while streaming, so a file that changed since it was scanned
     fails the load instead of being recorded under the wrong checksum.
+
+    Blank lines at the end of the file (common in Excel and Windows exports) are dropped, since COPY
+    would read each one as a row with missing columns. Blank lines elsewhere still fail the load.
     """
     statement = sql.SQL("COPY {} ({}) FROM STDIN WITH (FORMAT csv, HEADER MATCH, ENCODING 'UTF8')").format(
         sql.Identifier("raw", table), sql.SQL(", ").join(map(sql.Identifier, columns)))
@@ -154,13 +158,25 @@ def copy_into_raw(conn: psycopg.Connection, csv_file: CsvFile, table: str, colum
     with conn.cursor() as cur:
         with csv_file.path.open("rb") as f, cur.copy(statement) as copy:
             first = True
+            # Trailing whitespace is held back until more content follows, so it is dropped at the end
+            pending = b""
             while chunk := f.read(1 << 20):
                 digest.update(chunk)
                 if first:
                     first = False
                     if chunk.startswith(UTF8_BOM):  # Excel-style BOM would break HEADER MATCH
                         chunk = chunk[len(UTF8_BOM):]
-                copy.write(chunk)
+                data = pending + chunk
+                content = data.rstrip(TRAILING_WHITESPACE)
+                if content:
+                    copy.write(content)
+                pending = data[len(content):]
+            if pending:
+                # End the last row with its own line ending: COPY rejects mixed \r\n and \n endings
+                newline = pending.find(b"\n")
+                if newline < 0:
+                    newline = pending.find(b"\r")
+                copy.write(pending[:newline + 1] if newline >= 0 else pending)
         rows = cur.rowcount
     if digest.hexdigest() != csv_file.checksum:
         raise RuntimeError(f"{csv_file.name} changed while it was being loaded")
