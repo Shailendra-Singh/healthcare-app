@@ -1,4 +1,4 @@
-# Care Tasks
+# <img src="frontend/public/favicon.svg" alt="" width="40" align="center"> Care Tasks
 
 Loads patient data from CSV files, checks it against care programs (`care-programs/*.yaml`) and turns overdue
 care needs into scheduling and referral tasks for schedulers and the clinical team.
