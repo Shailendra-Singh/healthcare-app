@@ -1,0 +1,25 @@
+id: primary-care-wellness
+name: Primary Care Wellness
+shortName: PCP
+purpose: Ensure all patients see their PCP at least once a year.
+
+eligibility:
+  age: { min: 18 }
+
+tiers:
+  - id: high-priority
+    name: High Priority
+    criteria:
+      any:
+        - age: { min: 65 }
+        - diagnosis: { chronic: true }
+    needs:
+      - visit: PCP
+        everyDays: 180
+
+  - id: standard
+    name: Standard
+    criteria: otherwise
+    needs:
+      - visit: PCP
+        everyDays: 365

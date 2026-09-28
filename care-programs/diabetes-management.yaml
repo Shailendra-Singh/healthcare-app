@@ -1,0 +1,42 @@
+id: diabetes-management
+name: Diabetes Management
+purpose: Ensure diabetic patients receive appropriate specialist care based on risk level.
+
+eligibility:
+  diagnosis: { conditionGroups: [E10, E11] }
+
+tiers:
+  - id: high-risk
+    name: High Risk
+    criteria:
+      lab: { test: HbA1c, withinMonths: 6, latest: { gte: 9.0 } }
+    needs:
+      - { visit: Endocrinology, everyDays: 90 }
+      - { visit: Cardiology, everyDays: 90 }
+      - { visit: Podiatry, everyDays: 180 }
+      - { visit: Ophthalmology, everyDays: 365 }
+      - { visit: Nephrology, everyDays: 180 }
+
+  - id: moderate-risk
+    name: Moderate Risk
+    criteria:
+      lab: { test: HbA1c, withinMonths: 6, latest: { gte: 7.0, lt: 9.0 } }
+    needs:
+      - { visit: Endocrinology, everyDays: 180 }
+      - { visit: Ophthalmology, everyDays: 365 }
+      - { visit: Podiatry, everyDays: 365 }
+
+  - id: low-risk
+    name: Low Risk
+    criteria:
+      lab: { test: HbA1c, withinMonths: 6, latest: { lt: 7.0 } }
+    needs:
+      - { visit: Endocrinology, everyDays: 365 }
+      - { visit: Ophthalmology, everyDays: 365 }
+
+  - id: unmonitored
+    name: Unmonitored
+    criteria:
+      lab: { test: HbA1c, withinMonths: 6, exists: false }
+    needs:
+      - { visit: Endocrinology, everyDays: 90, priority: high, note: Get labs done }
