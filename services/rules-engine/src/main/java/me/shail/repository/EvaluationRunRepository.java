@@ -27,6 +27,9 @@ public interface EvaluationRunRepository {
     @Query("from EvaluationRun where status = :status order by id desc limit 1")
     Optional<EvaluationRun> findLatestByStatus(EvaluationRun.Status status);
 
+    @Query("from EvaluationRun where id = :id and status = :status")
+    Optional<EvaluationRun> findByIdAndStatus(Long id, EvaluationRun.Status status);
+
     default Optional<EvaluationRun> findLatestSucceeded() {
         return findLatestByStatus(EvaluationRun.Status.SUCCEEDED);
     }

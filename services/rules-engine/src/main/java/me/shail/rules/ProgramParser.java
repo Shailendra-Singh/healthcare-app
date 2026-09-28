@@ -48,7 +48,7 @@ public final class ProgramParser {
         if (root == null || !root.isObject()) {
             throw new ProgramDefinitionException(List.of("expected a mapping with id, name, eligibility and tiers"));
         }
-        allowOnly(root, "", "id", "name", "shortName", "purpose", "eligibility", "tiers");
+        allowOnly(root, "", "id", "name", "shortName", "purpose", "eligibility", "tiers", "tasks");
 
         String id = id(root.get("id"), "id");
         String name = requiredText(root.get("name"), "name");
@@ -56,11 +56,12 @@ public final class ProgramParser {
         String purpose = optionalText(root.get("purpose"), "purpose");
         Condition eligibility = required(root.get("eligibility"), "eligibility") ? condition(root.get("eligibility"), "eligibility") : null;
         List<ProgramDefinition.Tier> tiers = tiers(root.get("tiers"));
+        ProgramDefinition.TaskPolicy tasks = root.has("tasks") ? tasks(root.get("tasks"), "tasks") : null;
 
         if (!errors.isEmpty()) {
             throw new ProgramDefinitionException(errors);
         }
-        return new ProgramDefinition(id, name, shortName, purpose, eligibility, tiers);
+        return new ProgramDefinition(id, name, shortName, purpose, eligibility, tiers, tasks);
     }
 
     private List<ProgramDefinition.Tier> tiers(JsonNode node) {
@@ -101,6 +102,24 @@ public final class ProgramParser {
             tiers.add(new ProgramDefinition.Tier(id, name, criteria, needs(tier.get("needs"), path + ".needs")));
         }
         return tiers;
+    }
+
+    private ProgramDefinition.TaskPolicy tasks(JsonNode node, String path) {
+        if (!mapping(node, path, "pastCadence and neverSeen")) {
+            return null;
+        }
+        allowOnly(node, path, "pastCadence", "neverSeen");
+        return new ProgramDefinition.TaskPolicy(taskType(node.get("pastCadence"), path + ".pastCadence"),
+                taskType(node.get("neverSeen"), path + ".neverSeen"));
+    }
+
+    private String taskType(JsonNode node, String path) {
+        String value = requiredText(node, path);
+        if (value != null && !ProgramDefinition.TaskPolicy.VALUES.contains(value)) {
+            errors.add(path + ": expected scheduling, referral or none, got '" + value + "'");
+            return null;
+        }
+        return value;
     }
 
     private List<ProgramDefinition.Need> needs(JsonNode node, String path) {

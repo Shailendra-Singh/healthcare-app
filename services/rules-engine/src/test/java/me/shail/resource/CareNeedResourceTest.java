@@ -28,7 +28,7 @@ class CareNeedResourceTest {
     void passesFiltersAndPaging() {
         when(resultsService.careNeeds("diabetes-management", "high-risk", NeedStatus.OVERDUE, "Cardiology", 2, 50))
                 .thenReturn(List.of(new CareNeedDto("P1", "diabetes-management", "high-risk", "Cardiology", 90,
-                        LocalDate.of(2026, 5, 1), LocalDate.of(2026, 7, 30), null, NeedStatus.OVERDUE, "normal", null)));
+                        LocalDate.of(2026, 5, 1), LocalDate.of(2026, 7, 30), null, NeedStatus.OVERDUE, "normal", null, null)));
 
         given().queryParam("programId", "diabetes-management").queryParam("tierId", "high-risk")
                 .queryParam("status", "OVERDUE").queryParam("specialty", "Cardiology")

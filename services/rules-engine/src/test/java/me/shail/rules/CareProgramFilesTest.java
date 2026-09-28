@@ -37,6 +37,14 @@ class CareProgramFilesTest {
         assertEquals("PCP", wellness.shortName());
     }
 
+    @Test
+    void taskPoliciesFollowTheTaskGenerationCriteria() {
+        assertEquals(new ProgramDefinition.TaskPolicy("scheduling", "none"), wellness.tasks(),
+                "PCP: scheduling when past cadence; no task without PCP history");
+        assertEquals(new ProgramDefinition.TaskPolicy("scheduling", "referral"), diabetes.tasks(),
+                "specialists: scheduling when past cadence; referral without a prior encounter");
+    }
+
     // --- Primary Care Wellness ---
 
     @Test

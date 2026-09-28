@@ -1,7 +1,8 @@
-# rules-engine stack: the app and its own PostgreSQL 18 on rules-engine-network.
+# rules-engine stack: the app and its own PostgreSQL 18 on the private rules-engine-network.
 #
-# rules-engine also joins clinical-data-network, only to call the clinical-data API, so start the
-# clinical-data stack first (it creates that network). Build the app first (the image copies
+# Only the app joins the API networks: clinical-data-api-network to call clinical-data (start that stack
+# first, it creates the network) and rules-engine-api-network, which consumers (task-generation) join to call
+# this API. The database is reachable from this stack only. Build the app first (the image copies
 # target/quarkus-app), then start:
 #
 #   ./mvnw package -DskipTests
@@ -13,8 +14,6 @@
 name: rules-engine
 
 services:
-  # Named rules-engine-db, not postgres: rules-engine is also on clinical-data-network, where
-  # "postgres" is clinical-data's database
   rules-engine-db:
     image: docker.io/library/postgres:18
     environment:
@@ -63,12 +62,17 @@ services:
     restart: unless-stopped
     networks:
       - rules-engine-network
-      - clinical-data-network
+      - rules-engine-api-network
+      - clinical-data-api-network
 
 networks:
+  # Private: this stack only
   rules-engine-network:
     name: rules-engine-network
-  # Created by the clinical-data stack
-  clinical-data-network:
-    name: clinical-data-network
+  # This API, for consumers; only the app joins it here
+  rules-engine-api-network:
+    name: rules-engine-api-network
+  # clinical-data's API, created by the clinical-data stack
+  clinical-data-api-network:
+    name: clinical-data-api-network
     external: true

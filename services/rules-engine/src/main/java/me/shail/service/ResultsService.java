@@ -3,6 +3,7 @@ package me.shail.service;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.data.page.PageRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,10 @@ public class ResultsService {
         return evaluationRunRepository.findLatest().map(this::toDto);
     }
 
+    public Optional<EvaluationRunDto> latestSucceededRun() {
+        return evaluationRunRepository.findLatestSucceeded().map(this::toDto);
+    }
+
     public Optional<EvaluationRunDto> run(Long runId) {
         return evaluationRunRepository.findById(runId).map(this::toDto);
     }
@@ -59,12 +64,14 @@ public class ResultsService {
         if (memberships.isEmpty()) {
             return List.of();
         }
-        Map<String, List<CareNeedDto>> needsByProgram = careNeedRepository.findByPatient(run.get().id, sourcePatientId)
-                .stream().collect(Collectors.groupingBy(n -> n.programId, LinkedHashMap::new,
-                        Collectors.mapping(CareNeedDto::from, Collectors.toList())));
         Map<Long, ProgramVersion> versions = programVersionRepository
                 .findByIds(memberships.stream().map(m -> m.programVersionId).distinct().toList())
                 .stream().collect(Collectors.toMap(v -> v.id, Function.identity()));
+        Map<String, CareNeedDto.TaskPolicy> policies = new java.util.HashMap<>();
+        memberships.forEach(m -> policies.put(m.programId, CareNeedDto.TaskPolicy.of(versions.get(m.programVersionId))));
+        Map<String, List<CareNeedDto>> needsByProgram = careNeedRepository.findByPatient(run.get().id, sourcePatientId)
+                .stream().collect(Collectors.groupingBy(n -> n.programId, LinkedHashMap::new,
+                        Collectors.mapping(n -> CareNeedDto.from(n, policies.get(n.programId)), Collectors.toList())));
         return memberships.stream()
                 .map(m -> PatientProgramDto.from(m, versions.get(m.programVersionId),
                         needsByProgram.getOrDefault(m.programId, List.of())))
@@ -75,9 +82,30 @@ public class ResultsService {
     public List<CareNeedDto> careNeeds(String programId, String tierId, NeedStatus status, String specialty,
             int page, int size) {
         return evaluationRunRepository.findLatestSucceeded()
-                .map(run -> careNeedRepository.search(run.id, programId, tierId, status, specialty, page, size))
-                .orElse(List.of())
-                .stream().map(CareNeedDto::from).toList();
+                .map(run -> withPolicies(run.id, careNeedRepository.search(run.id, programId, tierId, status, specialty, page, size)))
+                .orElse(List.of());
+    }
+
+    /**
+     * One page of every care need of a successful run, in a stable order (patient, program, specialty), so a
+     * consumer can page through a whole run even while newer runs finish. Empty when the run is not a
+     * SUCCEEDED run (or was deleted as an old run).
+     */
+    public Optional<List<CareNeedDto>> careNeedsOfRun(Long runId, int page, int size) {
+        return evaluationRunRepository.findByIdAndStatus(runId, EvaluationRun.Status.SUCCEEDED)
+                .map(run -> withPolicies(run.id, careNeedRepository.findPageByRun(run.id, PageRequest.ofPage(page, size, false))));
+    }
+
+    /** Adds each program's task policy, from the program versions the run used. */
+    private List<CareNeedDto> withPolicies(Long runId, List<CareNeed> needs) {
+        Map<String, CareNeedDto.TaskPolicy> policies = new java.util.HashMap<>();
+        for (ProgramVersion version : programVersionRepository.findByIds(patientProgramRepository.findProgramVersionIds(runId))) {
+            CareNeedDto.TaskPolicy policy = CareNeedDto.TaskPolicy.of(version);
+            if (policy != null) {
+                policies.put(version.programId, policy);
+            }
+        }
+        return needs.stream().map(n -> CareNeedDto.from(n, policies.get(n.programId))).toList();
     }
 
     private EvaluationRunDto toDto(EvaluationRun run) {

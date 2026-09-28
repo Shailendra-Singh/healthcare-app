@@ -22,6 +22,10 @@ public interface CareNeedRepository {
     @Query("from CareNeed where runId = :runId and sourcePatientId = :sourcePatientId order by programId, specialty")
     List<CareNeed> findByPatient(Long runId, String sourcePatientId);
 
+    /** Every care need of a run in a stable order, for paging through all of them; {@code page} starts at 1. */
+    @Query("from CareNeed where runId = :runId order by sourcePatientId, programId, specialty")
+    List<CareNeed> findPageByRun(Long runId, jakarta.data.page.PageRequest pageRequest);
+
     /** Rows of [status, count]. */
     @Query("select status, count(*) from CareNeed where runId = :runId group by status")
     List<Object[]> countByStatus(Long runId);

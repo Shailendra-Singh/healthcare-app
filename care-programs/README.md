@@ -24,7 +24,15 @@ tiers:                           # checked top to bottom; the first match wins
         everyDays: 90
         priority: high           # optional: normal (default) or high
         note: Get labs done      # optional
+
+tasks:                           # optional: how task-generation turns due needs into tasks
+  pastCadence: scheduling        # seen that specialty before, last visit older than the cadence
+  neverSeen: referral            # no visit to that specialty on record
 ```
+
+`tasks` values are `scheduling`, `referral` or `none`. Without a `tasks` section, the program's needs
+produce no tasks. A need only produces a task when it is `OVERDUE` (see below): a booked appointment or a
+visit within the cadence means no task.
 
 ## Conditions
 

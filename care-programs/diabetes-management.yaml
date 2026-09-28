@@ -40,3 +40,8 @@ tiers:
       lab: { test: HbA1c, withinMonths: 6, exists: false }
     needs:
       - { visit: Endocrinology, everyDays: 90, priority: high, note: Get labs done }
+
+# How task-generation turns a due specialist visit into a task
+tasks:
+  pastCadence: scheduling      # seen that specialty before, last visit older than the cadence
+  neverSeen: referral          # no prior encounter with that specialty

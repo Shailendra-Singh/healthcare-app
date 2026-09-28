@@ -16,6 +16,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import me.shail.dto.CareNeedDto;
 import me.shail.dto.EvaluationRunDto;
 import me.shail.model.EvaluationRun;
 import me.shail.service.EvaluationInProgressException;
@@ -73,6 +74,31 @@ class EvaluationResourceTest {
                 .body("programErrors[0]", is("new.yaml: name: required (skipped)"))
                 .body("summary.tiers[0].patients", is(14))
                 .body("summary.needsByStatus.OVERDUE", is(33));
+    }
+
+    @Test
+    void latestSucceededUsesTheStatusFilter() {
+        when(resultsService.latestSucceededRun()).thenReturn(Optional.of(new EvaluationRunDto(8L, EvaluationRun.Trigger.SCHEDULED,
+                LocalDate.of(2026, 9, 28), EvaluationRun.Status.SUCCEEDED, 3L, 10, List.of(), null, null, null, null)));
+
+        given().queryParam("status", "SUCCEEDED").when().get("/api/v1/evaluations/latest")
+                .then().statusCode(200).body("runId", is(8));
+        given().queryParam("status", "FAILED").when().get("/api/v1/evaluations/latest").then().statusCode(400);
+    }
+
+    @Test
+    void careNeedsOfARunArePagedAnd404WhenTheRunIsNotAvailable() {
+        CareNeedDto need = new CareNeedDto("P1", "diabetes-management", "high-risk", "Podiatry", 180, null,
+                LocalDate.of(2026, 9, 28), null, me.shail.rules.ProgramEvaluator.NeedStatus.OVERDUE, "normal", null,
+                new CareNeedDto.TaskPolicy("scheduling", "referral"));
+        when(resultsService.careNeedsOfRun(8L, 2, 50)).thenReturn(Optional.of(List.of(need)));
+        when(resultsService.careNeedsOfRun(9L, 1, 500)).thenReturn(Optional.empty());
+
+        given().queryParam("page", 2).queryParam("size", 50).when().get("/api/v1/evaluations/8/care-needs")
+                .then().statusCode(200)
+                .body("[0].specialty", is("Podiatry"))
+                .body("[0].tasks.pastCadence", is("scheduling"));
+        given().when().get("/api/v1/evaluations/9/care-needs").then().statusCode(404);
     }
 
     @Test

@@ -7,6 +7,7 @@ import java.util.List;
  *
  * @param shortName optional
  * @param tiers     checked in order; the first whose criteria match wins
+ * @param tasks     how task-generation turns this program's unmet needs into tasks; null for none
  */
 public record ProgramDefinition(
         String id,
@@ -14,7 +15,8 @@ public record ProgramDefinition(
         String shortName,
         String purpose,
         Condition eligibility,
-        List<Tier> tiers) {
+        List<Tier> tiers,
+        TaskPolicy tasks) {
 
     public record Tier(String id, String name, Condition criteria, List<Need> needs) {
     }
@@ -27,5 +29,17 @@ public record ProgramDefinition(
      * @param note     optional
      */
     public record Need(String visit, int everyDays, String priority, String note) {
+    }
+
+    /**
+     * The task to create for a due need, by whether the patient has seen that specialty before.
+     * Values are task types known to task-generation (scheduling, referral) or none.
+     *
+     * @param pastCadence seen before and the last visit is older than the cadence
+     * @param neverSeen   no visit to that specialty on record
+     */
+    public record TaskPolicy(String pastCadence, String neverSeen) {
+
+        public static final java.util.Set<String> VALUES = java.util.Set.of("scheduling", "referral", "none");
     }
 }

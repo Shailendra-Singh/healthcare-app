@@ -43,6 +43,14 @@ public class ProgramVersion {
     @Column(nullable = false)
     public String definition;
 
+    /** Task for a need seen before but past its cadence: scheduling, referral, none; null without a policy */
+    @Column(name = "past_cadence_task", length = 30)
+    public String pastCadenceTask;
+
+    /** Task for a need never seen: scheduling, referral, none; null without a policy */
+    @Column(name = "never_seen_task", length = 30)
+    public String neverSeenTask;
+
     @Column(name = "loaded_at", insertable = false, updatable = false)
     public OffsetDateTime loadedAt;
 }

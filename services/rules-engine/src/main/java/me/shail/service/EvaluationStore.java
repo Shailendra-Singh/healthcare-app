@@ -124,6 +124,10 @@ public class EvaluationStore {
             version.sourceFile = program.sourceFile();
             version.checksum = program.checksum();
             version.definition = program.yaml();
+            if (program.definition().tasks() != null) {
+                version.pastCadenceTask = program.definition().tasks().pastCadence();
+                version.neverSeenTask = program.definition().tasks().neverSeen();
+            }
             programVersionRepository.insert(version);
             LOG.infof("Care program %s: new version %d from %s", version.programId, version.id, version.sourceFile);
             return version;
