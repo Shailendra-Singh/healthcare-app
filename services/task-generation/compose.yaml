@@ -1,0 +1,70 @@
+# task-generation stack: the app and its own PostgreSQL 18 on the private task-generation-network.
+#
+# Only the app also joins rules-engine-api-network, to call the rules-engine API, so start the
+# clinical-data and rules-engine stacks first (rules-engine creates that network). The database is
+# reachable from this stack only. Build the app first
+# (the image copies target/quarkus-app), then start:
+#
+#   ./mvnw package -DskipTests
+#   docker compose up --build        # or: podman compose up --build
+#
+# TASK_DB_USER and TASK_DB_PASSWORD come from .env next to this file, which Compose reads
+# automatically for ${...} substitution.
+
+name: task-generation
+
+services:
+  task-generation-db:
+    image: docker.io/library/postgres:18
+    environment:
+      POSTGRES_USER: ${TASK_DB_USER:?set TASK_DB_USER in .env}
+      POSTGRES_PASSWORD: ${TASK_DB_PASSWORD:?set TASK_DB_PASSWORD in .env}
+      POSTGRES_DB: ${TASK_DB_NAME:-task_generation}
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker, so mount the parent
+      - ./.data:/var/lib/postgresql
+    ports:
+      # clinical-data's database has 5432, rules-engine's 5433
+      - "${DB_HOST_PORT:-5434}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - task-generation-network
+
+  # Turns the rules-engine's due care needs into scheduling and referral tasks
+  task-generation:
+    build:
+      context: .
+      dockerfile: src/main/docker/Dockerfile.jvm
+    image: task-generation:latest
+    environment:
+      TASK_DB_USER: ${TASK_DB_USER}
+      TASK_DB_PASSWORD: ${TASK_DB_PASSWORD}
+      TASK_DB_NAME: ${TASK_DB_NAME:-task_generation}
+      DB_HOST: task-generation-db
+      DB_HOST_PORT: "5432"
+      RULES_ENGINE_URL: http://rules-engine:8080
+      TASK_POLL_EVERY: ${TASK_POLL_EVERY:-5m}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "8083:8080"   # task-generation at localhost:8083
+    depends_on:
+      task-generation-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - task-generation-network
+      - rules-engine-api-network
+
+networks:
+  # Private: this stack only
+  task-generation-network:
+    name: task-generation-network
+  # The rules-engine's API, created by the rules-engine stack
+  rules-engine-api-network:
+    name: rules-engine-api-network
+    external: true
