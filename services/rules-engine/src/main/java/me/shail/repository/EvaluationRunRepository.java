@@ -24,16 +24,30 @@ public interface EvaluationRunRepository {
     @Query("from EvaluationRun order by id desc limit 1")
     Optional<EvaluationRun> findLatest();
 
-    @Query("from EvaluationRun where status = SUCCEEDED order by id desc limit 1")
-    Optional<EvaluationRun> findLatestSucceeded();
+    @Query("from EvaluationRun where status = :status order by id desc limit 1")
+    Optional<EvaluationRun> findLatestByStatus(EvaluationRun.Status status);
 
-    @Query("select count(*) from EvaluationRun where status = RUNNING")
-    long countRunning();
+    default Optional<EvaluationRun> findLatestSucceeded() {
+        return findLatestByStatus(EvaluationRun.Status.SUCCEEDED);
+    }
+
+    @Query("select count(*) from EvaluationRun where status = :status")
+    long countByStatus(EvaluationRun.Status status);
+
+    default long countRunning() {
+        return countByStatus(EvaluationRun.Status.RUNNING);
+    }
+
+    @Query("update EvaluationRun set status = :newStatus, finishedAt = :finishedAt, errorMessage = :errorMessage"
+            + " where status = :currentStatus")
+    int updateStatus(EvaluationRun.Status currentStatus, EvaluationRun.Status newStatus, OffsetDateTime finishedAt,
+            String errorMessage);
 
     /** Runs left RUNNING by a process that stopped mid-run would block every later run. */
-    @Query("update EvaluationRun set status = FAILED, finishedAt = :now,"
-            + " errorMessage = 'Abandoned: the rules-engine stopped before the run finished' where status = RUNNING")
-    int failAbandoned(OffsetDateTime now);
+    default int failAbandoned(OffsetDateTime now) {
+        return updateStatus(EvaluationRun.Status.RUNNING, EvaluationRun.Status.FAILED, now,
+                "Abandoned: the rules-engine stopped before the run finished");
+    }
 
     /** Deletes runs older than the newest {@code keep}; their results go with them (ON DELETE CASCADE). */
     @Query("delete from EvaluationRun where id < (select min(r.id) from (select r2.id as id from EvaluationRun r2"
